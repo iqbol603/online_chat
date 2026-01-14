@@ -56,7 +56,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [activeTab, setActiveTab] = useState<'chats' | 'admin'>('chats');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isClientTyping, setIsClientTyping] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
   // Refs to avoid stale closures inside socket event handlers
   const selectedConversationRef = useRef<Conversation | null>(null);
@@ -123,9 +123,11 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     // Автоматическое определение WebSocket URL
     const getWsUrl = () => {
       const hostname = window.location.hostname;
-      return hostname === 'localhost' || hostname === '127.0.0.1'
-        ? 'http://localhost:3000'
-        : `http://${hostname}:3000`;
+      // Локально backend на 3060, на сервере backend на https://wifi.babilon-t.tj:3063
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:3060';
+      }
+      return 'wss://wifi.babilon-t.tj:3063';
     };
     
     // Подключение к WebSocket

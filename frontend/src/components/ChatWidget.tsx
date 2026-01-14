@@ -7,22 +7,25 @@ import './ChatWidget.css';
 const getApiUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    // Если на localhost, используем localhost:3000, иначе используем тот же хост на порту 3000
-    return hostname === 'localhost' || hostname === '127.0.0.1' 
-      ? 'http://localhost:3000/api'
-      : `http://${hostname}:3000/api`;
+    // Локально: backend на 3060, на сервере: https://wifi.babilon-t.tj:3063
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:3060/api';
+    }
+    return 'https://wifi.babilon-t.tj:3063/api';
   }
-  return 'http://localhost:3000/api';
+  return 'http://localhost:3060/api';
 };
 
 const getWsUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    return hostname === 'localhost' || hostname === '127.0.0.1'
-      ? 'http://localhost:3000'
-      : `http://${hostname}:3000`;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:3060';
+    }
+    // WebSocket для https-домена
+    return 'wss://wifi.babilon-t.tj:3063';
   }
-  return 'http://localhost:3000';
+  return 'http://localhost:3060';
 };
 
 const API_URL = getApiUrl();

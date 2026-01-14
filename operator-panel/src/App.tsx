@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import OperatorDashboard from './components/OperatorDashboard';
 import Login from './components/Login';
@@ -8,12 +8,13 @@ import './App.css';
 const getApiUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    // Если на localhost, используем localhost:3000, иначе используем тот же хост на порту 3000
-    return hostname === 'localhost' || hostname === '127.0.0.1' 
-      ? 'http://localhost:3000/api'
-      : `http://${hostname}:3000/api`;
+    // Локально: backend на 3060, на сервере: https://wifi.babilon-t.tj:3063
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:3060/api';
+    }
+    return 'https://wifi.babilon-t.tj:3063/api';
   }
-  return 'http://localhost:3000/api';
+  return 'http://localhost:3060/api';
 };
 
 const API_URL = getApiUrl();
