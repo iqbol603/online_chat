@@ -98,7 +98,10 @@ const ChatWidget: React.FC = () => {
   useEffect(() => {
     if (isOpen && client && conversation) {
       const newSocket = io(WS_URL, {
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'], // Fallback на polling если WebSocket не работает
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
       });
 
       newSocket.on('connect', () => {

@@ -34,7 +34,14 @@ interface ClientSocket extends Socket {
       // Разрешаем порты 3001 и 3002
       const isAllowedPort = /:300[12]/.test(origin);
       
+      // Разрешаем домен сервера wifi.babilon-t.tj
+      const isServerDomain = /^https?:\/\/wifi\.babilon-t\.tj/.test(origin);
+      
       if ((isLocalhost || isLocalNetwork) && isAllowedPort) {
+        return callback(null, true);
+      }
+      
+      if (isServerDomain) {
         return callback(null, true);
       }
       
@@ -48,6 +55,8 @@ interface ClientSocket extends Socket {
     },
     credentials: true,
   },
+  transports: ['websocket', 'polling'], // Поддержка WebSocket и polling
+  allowEIO3: true, // Поддержка старых версий Socket.IO
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()

@@ -42,7 +42,14 @@ async function bootstrap() {
       // Разрешаем порты 3001 и 3002 (frontend и operator-panel)
       const isAllowedPort = /:300[12]/.test(origin);
       
+      // Разрешаем домен сервера wifi.babilon-t.tj
+      const isServerDomain = /^https?:\/\/wifi\.babilon-t\.tj/.test(origin);
+      
       if ((isLocalhost || isLocalNetwork) && isAllowedPort) {
+        return callback(null, true);
+      }
+      
+      if (isServerDomain) {
         return callback(null, true);
       }
       
