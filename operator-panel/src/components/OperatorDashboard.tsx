@@ -58,6 +58,10 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [isClientTyping, setIsClientTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
+  const [selectedOperatorId, setSelectedOperatorId] = useState<number | null>(null);
+  const [reassigningConversationId, setReassigningConversationId] = useState<number | null>(null);
   // Refs to avoid stale closures inside socket event handlers
   const selectedConversationRef = useRef<Conversation | null>(null);
   const activeConversationsRef = useRef<Conversation[]>([]);
@@ -65,7 +69,34 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const isAdmin = operator.role === 'admin';
   const isSupervisor = operator.role === 'supervisor' || operator.role === 'admin';
 
+  const playNotificationSound = () => {
+    try {
+      // Создаем звук уведомления программно
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Настройки звука (короткий бип)
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+    } catch (error) {
+      console.warn('Could not play notification sound:', error);
+    }
+  };
+
   const showNotification = (clientName: string, messageText: string) => {
+    // Воспроизводим звуковое уведомление
+    playNotificationSound();
+    
     // Проверяем поддержку браузерных уведомлений
     if ('Notification' in window && Notification.permission === 'granted') {
       const notification = new Notification(`Новое сообщение от ${clientName}`, {
@@ -319,6 +350,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       setSelectedConversation(response.data);
       selectedConversationRef.current = response.data;
       setMessages(response.data.messages || []);
+      
+      // Помечаем все сообщения как прочитанные оператором
+      await axios.patch(`${apiUrl}/messages/conversation/${conversationId}/read-operator`);
     } catch (error) {
       console.error('Error loading conversation:', error);
     }
@@ -413,30 +447,39 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
         return;
       }
       
-      const operatorList = operators.map((op: any, idx: number) => 
-        `${idx + 1}. ${op.name} (${op.email})`
-      ).join('\n');
+      setAvailableOperators(operators);
+      setReassigningConversationId(conversationId);
+      setSelectedOperatorId(null);
+      setShowReassignModal(true);
+    } catch (error: any) {
+      alert(error.response?.data?.message || error.response?.data?.error || 'Ошибка при загрузке операторов');
+      console.error('Error loading operators:', error);
+    }
+  };
+
+  const handleConfirmReassign = async () => {
+    if (!reassigningConversationId || !selectedOperatorId) {
+      alert('Выберите оператора');
+      return;
+    }
+    
+    try {
+      await axios.patch(`${apiUrl}/conversations/${reassigningConversationId}/reassign`, {
+        operatorId: selectedOperatorId
+      });
       
-      const selected = prompt(`Выберите оператора (введите номер 1-${operators.length}):\n\n${operatorList}`);
+      const selectedOperator = availableOperators.find(op => op.operator_id === selectedOperatorId);
+      alert(`Диалог переназначен оператору ${selectedOperator?.name || 'оператору'}`);
       
-      if (selected) {
-        const operatorIndex = parseInt(selected) - 1;
-        if (operatorIndex >= 0 && operatorIndex < operators.length) {
-          const newOperatorId = operators[operatorIndex].operator_id;
-          
-          await axios.patch(`${apiUrl}/conversations/${conversationId}/reassign`, {
-            operatorId: newOperatorId
-          });
-          
-          alert(`Диалог переназначен оператору ${operators[operatorIndex].name}`);
-          loadActiveConversations();
-          
-          // Обновляем выбранный диалог
-          const response = await axios.get(`${apiUrl}/conversations/${conversationId}`);
-          setSelectedConversation(response.data);
-        } else {
-          alert('Неверный номер оператора');
-        }
+      setShowReassignModal(false);
+      setReassigningConversationId(null);
+      setSelectedOperatorId(null);
+      loadActiveConversations();
+      
+      // Обновляем выбранный диалог
+      if (reassigningConversationId) {
+        const response = await axios.get(`${apiUrl}/conversations/${reassigningConversationId}`);
+        setSelectedConversation(response.data);
       }
     } catch (error: any) {
       alert(error.response?.data?.message || error.response?.data?.error || 'Ошибка при переназначении');
@@ -605,7 +648,11 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                           : message.sender_type === 'client'
                           ? selectedConversation.client?.name || 'Клиент'
                           : message.sender_type === 'bot'
-                          ? 'Бот'
+                          ? (selectedConversation.client?.language === 'en' 
+                              ? 'Online Assistant' 
+                              : selectedConversation.client?.language === 'tj' 
+                              ? 'Ёрдамчии онлайн' 
+                              : 'Онлайн помощник')
                           : 'Система'}
                       </span>
                       <span className="message-time">{formatTime(message.created_at)}</span>
@@ -737,6 +784,47 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
           )}
         </div>
       </div>
+      )}
+
+      {/* Модальное окно для переназначения оператора */}
+      {showReassignModal && (
+        <div className="modal-overlay" onClick={() => setShowReassignModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Переназначить диалог</h3>
+              <button className="modal-close" onClick={() => setShowReassignModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p>Выберите оператора для переназначения:</p>
+              <div className="operator-list">
+                {availableOperators.map((op) => (
+                  <label key={op.operator_id} className="operator-option">
+                    <input
+                      type="radio"
+                      name="operator"
+                      value={op.operator_id}
+                      checked={selectedOperatorId === op.operator_id}
+                      onChange={() => setSelectedOperatorId(op.operator_id)}
+                    />
+                    <span>{op.name} ({op.email})</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-cancel" onClick={() => setShowReassignModal(false)}>
+                Отмена
+              </button>
+              <button 
+                className="modal-confirm" 
+                onClick={handleConfirmReassign}
+                disabled={!selectedOperatorId}
+              >
+                Переназначить
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
 import { ClientsModule } from '../clients/clients.module';
@@ -11,14 +11,15 @@ import { OperatorsModule } from '../operators/operators.module';
 @Module({
   imports: [
     ClientsModule,
-    ConversationsModule,
-    MessagesModule,
+    forwardRef(() => ConversationsModule), // Используем forwardRef для разрыва циклической зависимости
+    forwardRef(() => MessagesModule), // Используем forwardRef для разрыва циклической зависимости
     BotModule,
     RoutingModule,
     OperatorsModule,
   ],
   controllers: [ChatController],
   providers: [ChatGateway],
+  exports: [ChatGateway], // Экспортируем ChatGateway для использования в других модулях
 })
 export class ChatModule {}
 

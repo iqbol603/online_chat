@@ -34,8 +34,8 @@ export class Client {
   @Column({ type: 'varchar', length: 100, nullable: true })
   personal_account: string;
 
-  @Column({ type: 'enum', enum: ['ru', 'tj'], default: 'ru' })
-  language: 'ru' | 'tj';
+  @Column({ type: 'enum', enum: ['ru', 'tj', 'en'], default: 'ru' })
+  language: 'ru' | 'tj' | 'en';
 
   @CreateDateColumn()
   created_at: Date;

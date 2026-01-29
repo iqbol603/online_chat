@@ -14,8 +14,8 @@ class CreateClientDto {
   channel: 'web' | 'mobile';
 
   @IsOptional()
-  @IsEnum(['ru', 'tj'])
-  language?: 'ru' | 'tj';
+  @IsEnum(['ru', 'tj', 'en'])
+  language?: 'ru' | 'tj' | 'en';
 
   @IsOptional()
   @IsString()

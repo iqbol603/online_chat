@@ -25,8 +25,11 @@ async function bootstrap() {
   // Валидация
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
-    forbidNonWhitelisted: true,
+    forbidNonWhitelisted: false, // Разрешаем дополнительные поля для гибкости
     transform: true,
+    transformOptions: {
+      enableImplicitConversion: true, // Автоматическое преобразование типов
+    },
   }));
 
   // CORS - разрешаем доступ с локальной сети

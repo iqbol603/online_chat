@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Скрипт для создания оператора/супервизора
-# Использование: ./create-operator.sh "Имя" "email@example.com" "password" "role"
+# Использование:
+#   ./create-operator.sh "Имя" "email@example.com" "password" "role"
+#   BASE_URL=http://my-domain:3060 ./create-operator.sh "Имя" "email@example.com" "password" "role"
 # Роли: operator, supervisor, admin
 
 if [ $# -lt 4 ]; then
@@ -15,9 +17,13 @@ EMAIL=$2
 PASSWORD=$3
 ROLE=$4
 
+# Базовый URL backend-а
+# По умолчанию: локальный backend в dev-режиме
+BASE_URL=${BASE_URL:-http://localhost:3000}
+
 # Получить токен админа
-echo "Получение токена админа..."
-TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
+echo "Получение токена админа с BASE_URL=${BASE_URL}..."
+TOKEN=$(curl -s -X POST "${BASE_URL}/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@example.com","password":"admin123"}' \
   | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
@@ -28,7 +34,7 @@ if [ -z "$TOKEN" ]; then
 fi
 
 echo "Создание оператора..."
-RESPONSE=$(curl -s -X POST http://localhost:3000/api/operators \
+RESPONSE=$(curl -s -X POST "${BASE_URL}/api/operators" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d "{

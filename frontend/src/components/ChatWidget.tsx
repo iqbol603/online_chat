@@ -6,9 +6,26 @@ import './ChatWidget.css';
 // Автоматическое определение API URL на основе текущего хоста
 const getApiUrl = () => {
   if (typeof window !== 'undefined') {
+    // Проверка параметра URL для явного указания локального режима
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceLocal = urlParams.get('local') === 'true' || urlParams.get('local') === '1';
+    
     const hostname = window.location.hostname;
+    
+    // Проверка на локальный режим (localhost, 127.0.0.1, локальные IP)
+    const isLocal = 
+      forceLocal ||
+      hostname === 'localhost' || 
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      (hostname.startsWith('172.') && 
+       parseInt(hostname.split('.')[1] || '0') >= 16 && 
+       parseInt(hostname.split('.')[1] || '0') <= 31);
+    
     // Локально: backend на 3060, на сервере: https://wifi.babilon-t.tj:3063
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    if (isLocal) {
+      // Если фронтенд на другом порту (например, 3001), используем localhost:3060
       return 'http://localhost:3060/api';
     }
     return 'https://wifi.babilon-t.tj:3063/api';
@@ -18,8 +35,24 @@ const getApiUrl = () => {
 
 const getWsUrl = () => {
   if (typeof window !== 'undefined') {
+    // Проверка параметра URL для явного указания локального режима
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceLocal = urlParams.get('local') === 'true' || urlParams.get('local') === '1';
+    
     const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    
+    // Проверка на локальный режим (localhost, 127.0.0.1, локальные IP)
+    const isLocal = 
+      forceLocal ||
+      hostname === 'localhost' || 
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      (hostname.startsWith('172.') && 
+       parseInt(hostname.split('.')[1] || '0') >= 16 && 
+       parseInt(hostname.split('.')[1] || '0') <= 31);
+    
+    if (isLocal) {
       return 'http://localhost:3060';
     }
     // WebSocket для https-домена
@@ -33,6 +66,7 @@ const WS_URL = getWsUrl();
 
 interface Message {
   message_id: number;
+  conversation_id?: number;
   sender_type: 'client' | 'bot' | 'operator' | 'system';
   text: string;
   created_at: string;
@@ -54,7 +88,7 @@ interface Client {
   name: string;
   phone: string;
   email: string;
-  language: 'ru' | 'tj';
+  language: 'ru' | 'tj' | 'en';
 }
 
 const ChatWidget: React.FC = () => {
@@ -74,7 +108,7 @@ const ChatWidget: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    language: 'ru' as 'ru' | 'tj',
+    language: 'ru' as 'ru' | 'tj' | 'en',
     channel: 'web' as 'web' | 'mobile',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -84,6 +118,7 @@ const ChatWidget: React.FC = () => {
   const [ratingComment, setRatingComment] = useState('');
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const conversationClosedRef = useRef(false);
 
   useEffect(() => {
     // Проверяем сохраненные данные в localStorage
@@ -96,6 +131,11 @@ const ChatWidget: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Сбрасываем флаг закрытия при открытии нового чата
+    if (isOpen && client && conversation) {
+      conversationClosedRef.current = false;
+    }
+    
     if (isOpen && client && conversation) {
       const newSocket = io(WS_URL, {
         transports: ['websocket', 'polling'], // Fallback на polling если WebSocket не работает
@@ -129,6 +169,17 @@ const ChatWidget: React.FC = () => {
           }
           return [...prev, message];
         });
+        
+        // Если это системное сообщение о закрытии диалога, обновляем статус
+        if (message.sender_type === 'system' && message.text.includes('закрыт')) {
+          setConversation((prevConv) => {
+            if (prevConv && prevConv.conversation_id === message.conversation_id && prevConv.status !== 'closed') {
+              conversationClosedRef.current = true;
+              return { ...prevConv, status: 'closed' };
+            }
+            return prevConv;
+          });
+        }
         
         // Помечаем сообщения оператора как прочитанные клиентом
         if (message.sender_type === 'operator' && !message.read_by_client_at) {
@@ -172,16 +223,42 @@ const ChatWidget: React.FC = () => {
         }
       });
 
-      newSocket.on('conversation:closed', (data: { conversationId: number }) => {
-        if (conversation && conversation.conversation_id === data.conversationId) {
-          setConversation({ ...conversation, status: 'closed' });
-          setIsOperatorTyping(false);
-          setOperatorTypingName('');
-          // показываем форму оценки, если ещё не оценено
-          if (!ratingSubmitted && !conversation.rating) {
-            setShowRating(true);
-          }
+      newSocket.on('conversation:closed', (data: { conversationId: number } | Conversation) => {
+        // Обрабатываем как объект с conversationId, так и полный объект Conversation
+        const conversationId = 'conversationId' in data ? data.conversationId : (data as Conversation).conversation_id;
+        
+        // Защита от повторных вызовов
+        if (conversationClosedRef.current) {
+          return;
         }
+        conversationClosedRef.current = true;
+        
+        // Обновляем состояние
+        setConversation((prevConv) => {
+          if (prevConv && prevConv.conversation_id === conversationId && prevConv.status !== 'closed') {
+            // Сохраняем информацию о необходимости показа формы оценки
+            const shouldShowRating = !prevConv.rating;
+            
+            // Показываем форму оценки асинхронно, чтобы не блокировать обновление состояния
+            if (shouldShowRating) {
+              setTimeout(() => {
+                setRatingSubmitted((currentRatingSubmitted) => {
+                  if (!currentRatingSubmitted) {
+                    setShowRating(true);
+                  }
+                  return currentRatingSubmitted;
+                });
+              }, 100);
+            }
+            
+            return { ...prevConv, status: 'closed' };
+          }
+          return prevConv;
+        });
+        
+        // Обновляем другие состояния
+        setIsOperatorTyping(false);
+        setOperatorTypingName('');
       });
 
       setSocket(newSocket);
@@ -334,6 +411,50 @@ const ChatWidget: React.FC = () => {
     setInputText('');
   };
 
+  const handleCloseConversation = () => {
+    if (!socket || !conversation || conversation.status === 'closed' || conversationClosedRef.current) {
+      return;
+    }
+    
+    // Предотвращаем повторные вызовы
+    conversationClosedRef.current = true;
+    
+    // Сохраняем информацию о необходимости показа формы оценки
+    const shouldShowRating = !conversation.rating;
+    
+    // Оптимистично обновляем UI сразу одним батчем
+    setConversation((prevConv) => {
+      if (prevConv && prevConv.status !== 'closed') {
+        return { ...prevConv, status: 'closed' };
+      }
+      return prevConv;
+    });
+    
+    setIsOperatorTyping(false);
+    setOperatorTypingName('');
+    
+    // Показываем форму оценки асинхронно, если нужно
+    if (shouldShowRating) {
+      setTimeout(() => {
+        setRatingSubmitted((currentRatingSubmitted) => {
+          if (!currentRatingSubmitted) {
+            setShowRating(true);
+          }
+          return currentRatingSubmitted;
+        });
+      }, 100);
+    }
+    
+    // Отправляем событие закрытия на сервер (без callback для ускорения)
+    try {
+      socket.emit('client:close', { conversationId: conversation.conversation_id });
+    } catch (error) {
+      console.error('Error closing conversation:', error);
+      // При ошибке разрешаем повторную попытку
+      conversationClosedRef.current = false;
+    }
+  };
+
   const handleSubmitRating = async () => {
     if (!client || !conversation) return;
     if (ratingValue < 1 || ratingValue > 5) return;
@@ -417,7 +538,22 @@ const ChatWidget: React.FC = () => {
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const locale = client?.language === 'en' ? 'en-US' : client?.language === 'tj' ? 'tg-TJ' : 'ru-RU';
+    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getBotName = (language?: 'ru' | 'tj' | 'en') => {
+    const lang = language || client?.language || 'ru';
+    switch (lang) {
+      case 'ru':
+        return 'Онлайн помощник';
+      case 'tj':
+        return 'Ёрдамчии онлайн';
+      case 'en':
+        return 'Online Assistant';
+      default:
+        return 'Онлайн помощник';
+    }
   };
 
   return (
@@ -430,9 +566,20 @@ const ChatWidget: React.FC = () => {
         <div className="chat-container">
           <div className="chat-header">
             <h3>Онлайн-чат</h3>
-            <button className="close-button" onClick={() => setIsOpen(false)}>
-              ×
-            </button>
+            <div className="chat-header-actions">
+              {isRegistered && conversation && conversation.status !== 'closed' && (
+                <button 
+                  className="close-conversation-button" 
+                  onClick={handleCloseConversation}
+                  title="Закрыть диалог"
+                >
+                  Закрыть диалог
+                </button>
+              )}
+              <button className="close-button" onClick={() => setIsOpen(false)}>
+                ×
+              </button>
+            </div>
           </div>
 
           {!isRegistered ? (
@@ -472,10 +619,11 @@ const ChatWidget: React.FC = () => {
                 <label>Язык</label>
                 <select
                   value={formData.language}
-                  onChange={(e) => setFormData({ ...formData, language: e.target.value as 'ru' | 'tj' })}
+                  onChange={(e) => setFormData({ ...formData, language: e.target.value as 'ru' | 'tj' | 'en' })}
                 >
                   <option value="ru">Русский</option>
                   <option value="tj">Тоҷикӣ</option>
+                  <option value="en">English</option>
                 </select>
               </div>
 
@@ -494,12 +642,12 @@ const ChatWidget: React.FC = () => {
                     <div className="message-header">
                       <span className="message-sender">
                         {message.sender_type === 'client'
-                          ? 'Вы'
+                          ? (client?.language === 'en' ? 'You' : client?.language === 'tj' ? 'Шумо' : 'Вы')
                           : message.sender_type === 'bot'
-                          ? 'Бот'
+                          ? getBotName(client?.language)
                           : message.sender_type === 'operator'
-                          ? 'Оператор'
-                          : 'Система'}
+                          ? (client?.language === 'en' ? 'Operator' : client?.language === 'tj' ? 'Оператор' : 'Оператор')
+                          : (client?.language === 'en' ? 'System' : client?.language === 'tj' ? 'Система' : 'Система')}
                       </span>
                       <span className="message-time">{formatTime(message.created_at)}</span>
                     </div>

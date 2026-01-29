@@ -15,7 +15,7 @@ export class ClientsService {
     name: string;
     email?: string;
     channel: 'web' | 'mobile';
-    language?: 'ru' | 'tj';
+    language?: 'ru' | 'tj' | 'en';
     account_id?: string;
     contract?: string;
     personal_account?: string;
@@ -30,15 +30,18 @@ export class ClientsService {
 
     if (client) {
       // Обновляем данные если клиент уже существует
-      Object.assign(client, {
+      // Язык всегда обновляем, если он передан в запросе
+      const updateData: any = {
         name: data.name,
         email: data.email,
         channel: data.channel,
-        language: data.language || 'ru',
+        language: data.language !== undefined ? data.language : client.language, // Обновляем язык, если передан
         account_id: data.account_id,
         contract: data.contract,
         personal_account: data.personal_account,
-      });
+      };
+      
+      Object.assign(client, updateData);
       return await this.clientsRepository.save(client);
     }
 

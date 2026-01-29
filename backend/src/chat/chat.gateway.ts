@@ -186,10 +186,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         if (operatorId) {
           const operator = await this.operatorsService.findById(operatorId);
+          const systemMessageText = clientData.language === 'ru'
+            ? `Оператор ${operator.name} подключился к разговору.`
+            : clientData.language === 'tj'
+            ? `Оператор ${operator.name} ба муколама пайваст шуд.`
+            : `Operator ${operator.name} joined the conversation.`;
+          
           const systemMessage = await this.messagesService.create({
             conversation_id: data.conversationId,
             sender_type: 'system',
-            text: `Оператор ${operator.name} подключился к разговору.`,
+            text: systemMessageText,
           });
 
           // Отправляем клиенту
@@ -200,10 +206,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.sendToOperator(operatorId, 'message:new', systemMessage);
         } else {
           // Нет доступных операторов
+          const noOperatorText = clientData.language === 'ru'
+            ? 'Сейчас операторов нет онлайн. Оставьте сообщение — мы ответим, как только будем на связи.'
+            : clientData.language === 'tj'
+            ? 'Акнун операторҳо онлайн нестанд. Паём гузоред — мо ҳамчун ки дар тамос бошем, ҷавоб медиҳем.'
+            : 'No operators are online now. Leave a message — we will respond as soon as we are available.';
+          
           const noOperatorMessage = await this.messagesService.create({
             conversation_id: data.conversationId,
             sender_type: 'system',
-            text: 'Сейчас операторов нет онлайн. Оставьте сообщение — мы ответим, как только будем на связи.',
+            text: noOperatorText,
           });
           this.sendToClient(conversation.client_id, 'message:new', noOperatorMessage);
         }
@@ -216,13 +228,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Отправляем оператору
       this.sendToOperator(conversation.assigned_operator_id, 'message:new', message);
       
-      // Помечаем как прочитанное оператором и отправляем обновление
-      const updatedMessage = await this.messagesService.markAsReadByOperator(message.message_id);
-      if (updatedMessage) {
-        // Отправляем обновленное сообщение клиенту для обновления статуса галочек
-        this.sendToClient(conversation.client_id, 'message:updated', updatedMessage);
-        this.sendToOperator(conversation.assigned_operator_id, 'message:updated', updatedMessage);
-      }
+      // НЕ помечаем автоматически как прочитанное - оператор должен прочитать сообщение сам
+      // Сообщение будет помечено как прочитанное только когда оператор откроет диалог
     }
 
     return { success: true, message };
@@ -290,10 +297,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.conversationsService.assignOperator(data.conversationId, client.operatorId);
 
     const operator = await this.operatorsService.findById(client.operatorId);
+    const clientData = await this.clientsService.findById(conversation.client_id);
+    const systemMessageText = clientData.language === 'ru'
+      ? `Оператор ${operator.name} подключился к разговору.`
+      : clientData.language === 'tj'
+      ? `Оператор ${operator.name} ба муколама пайваст шуд.`
+      : `Operator ${operator.name} joined the conversation.`;
+    
     const systemMessage = await this.messagesService.create({
       conversation_id: data.conversationId,
       sender_type: 'system',
-      text: `Оператор ${operator.name} подключился к разговору.`,
+      text: systemMessageText,
     });
 
     // Отправляем клиенту
@@ -328,10 +342,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     await this.conversationsService.close(data.conversationId);
 
+    const clientData = await this.clientsService.findById(conversation.client_id);
+    const systemMessageText = clientData.language === 'ru'
+      ? 'Диалог закрыт оператором.'
+      : clientData.language === 'tj'
+      ? 'Муколама аз ҷониби оператор пӯшида шуд.'
+      : 'Dialog closed by operator.';
+    
     const systemMessage = await this.messagesService.create({
       conversation_id: data.conversationId,
       sender_type: 'system',
-      text: 'Диалог закрыт оператором.',
+      text: systemMessageText,
     });
 
     this.sendToClient(conversation.client_id, 'message:new', systemMessage);
@@ -342,15 +363,76 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { success: true };
   }
 
+  @SubscribeMessage('client:close')
+  async handleClientClose(
+    @ConnectedSocket() client: ClientSocket,
+    @MessageBody() data: { conversationId: number },
+  ) {
+    try {
+      if (!client.clientId) {
+        console.error('Client close: Not registered as client');
+        return { error: 'Not registered as client' };
+      }
+
+      const conversation = await this.conversationsService.findById(data.conversationId);
+      
+      if (!conversation) {
+        console.error('Client close: Conversation not found', data.conversationId);
+        return { error: 'Conversation not found' };
+      }
+      
+      if (conversation.client_id !== client.clientId) {
+        console.error('Client close: Unauthorized', { clientId: client.clientId, conversationClientId: conversation.client_id });
+        return { error: 'Unauthorized' };
+      }
+
+      if (conversation.status === 'closed') {
+        console.log('Client close: Conversation already closed', data.conversationId);
+        return { success: true, message: 'Already closed' };
+      }
+
+      await this.conversationsService.close(data.conversationId);
+
+      const clientData = await this.clientsService.findById(conversation.client_id);
+      const systemMessageText = clientData.language === 'ru'
+        ? 'Диалог закрыт клиентом.'
+        : clientData.language === 'tj'
+        ? 'Муколама аз ҷониби муштарӣ пӯшида шуд.'
+        : 'Dialog closed by client.';
+      
+      const systemMessage = await this.messagesService.create({
+        conversation_id: data.conversationId,
+        sender_type: 'system',
+        text: systemMessageText,
+      });
+
+      // Отправляем клиенту
+      client.emit('message:new', systemMessage);
+      client.emit('conversation:closed', { conversationId: data.conversationId });
+
+      // Отправляем оператору, если он назначен
+      if (conversation.assigned_operator_id) {
+        this.sendToOperator(conversation.assigned_operator_id, 'message:new', systemMessage);
+        this.sendToOperator(conversation.assigned_operator_id, 'conversation:closed', conversation);
+      }
+
+      console.log('Client close: Successfully closed conversation', data.conversationId);
+      return { success: true };
+    } catch (error) {
+      console.error('Client close: Error', error);
+      return { error: 'Internal server error' };
+    }
+  }
+
   // Вспомогательные методы для отправки сообщений
-  private sendToClient(clientId: number, event: string, data: any) {
+  public sendToClient(clientId: number, event: string, data: any) {
     const socketId = this.clientSockets.get(clientId);
     if (socketId) {
       this.server.to(socketId).emit(event, data);
     }
   }
 
-  private sendToOperator(operatorId: number, event: string, data: any) {
+  public sendToOperator(operatorId: number, event: string, data: any) {
     const socketId = this.operatorSockets.get(operatorId);
     if (socketId) {
       this.server.to(socketId).emit(event, data);

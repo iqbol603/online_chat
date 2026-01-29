@@ -17,8 +17,10 @@ class StartChatDto {
   channel: 'web' | 'mobile';
 
   @IsOptional()
-  @IsEnum(['ru', 'tj'])
-  language?: 'ru' | 'tj';
+  @IsEnum(['ru', 'tj', 'en'], {
+    message: 'language must be one of the following values: ru, tj, en',
+  })
+  language?: 'ru' | 'tj' | 'en';
 
   @IsOptional()
   @IsString()
@@ -44,29 +46,44 @@ export class ChatController {
 
   @Post('start')
   async startChat(@Body() dto: StartChatDto) {
-    // Создаем или находим клиента
-    const client = await this.clientsService.create(dto);
+    // Валидируем и нормализуем язык
+    const validLanguages = ['ru', 'tj', 'en'] as const;
+    const normalizedLanguage = dto.language && validLanguages.includes(dto.language as any)
+      ? dto.language
+      : 'ru';
+
+    // Создаем или находим клиента (обновляем язык, если передан)
+    const client = await this.clientsService.create({
+      ...dto,
+      language: normalizedLanguage, // Используем нормализованный язык
+    });
+
+    // Перезагружаем клиента, чтобы получить актуальный язык
+    const updatedClient = await this.clientsService.findById(client.client_id);
+    const clientLanguage = updatedClient.language || normalizedLanguage;
 
     // Проверяем, есть ли активный диалог
-    let conversation = await this.conversationsService.findActiveByClient(client.client_id);
+    let conversation = await this.conversationsService.findActiveByClient(updatedClient.client_id);
 
     if (!conversation) {
       // Создаем новый диалог
       conversation = await this.conversationsService.create({
-        client_id: client.client_id,
+        client_id: updatedClient.client_id,
         department: dto.channel === 'web' ? 'web' : 'mobile',
       });
 
       // Отправляем приветственное сообщение от бота
-      const welcomeMessage = client.language === 'ru'
-        ? `Здравствуйте, ${client.name}! Я виртуальный помощник. Чем могу помочь?`
-        : `Салом, ${client.name}! Ман кӯмакчии виртуалӣ ҳастам. Чӣ тавр кӯмак карда метавонам?`;
+      const welcomeMessage = clientLanguage === 'ru'
+        ? `Здравствуйте, ${updatedClient.name}! Я виртуальный помощник. Чем могу помочь?`
+        : clientLanguage === 'tj'
+        ? `Салом, ${updatedClient.name}! Ман кӯмакчии виртуалӣ ҳастам. Чӣ тавр кӯмак карда метавонам?`
+        : `Hello, ${updatedClient.name}! I'm a virtual assistant. How can I help?`;
 
       await this.botService.sendBotMessage(conversation.conversation_id, welcomeMessage, [
-        client.language === 'ru' ? 'Интернет не работает' : 'Интернет кор намекунад',
-        client.language === 'ru' ? 'Оплата' : 'Пардохт',
-        client.language === 'ru' ? 'Тарифы' : 'Тарифҳо',
-        client.language === 'ru' ? 'Соединить с оператором' : 'Ба оператор пайваст кардан',
+        clientLanguage === 'ru' ? 'Интернет не работает' : clientLanguage === 'tj' ? 'Интернет кор намекунад' : 'Internet not working',
+        clientLanguage === 'ru' ? 'Оплата' : clientLanguage === 'tj' ? 'Пардохт' : 'Payment',
+        clientLanguage === 'ru' ? 'Тарифы' : clientLanguage === 'tj' ? 'Тарифҳо' : 'Tariffs',
+        clientLanguage === 'ru' ? 'Соединить с оператором' : clientLanguage === 'tj' ? 'Ба оператор пайваст кардан' : 'Connect to operator',
       ]);
     }
 
@@ -74,7 +91,7 @@ export class ChatController {
     const messages = await this.messagesService.findByConversation(conversation.conversation_id);
 
     return {
-      client,
+      client: updatedClient,
       conversation,
       messages,
     };

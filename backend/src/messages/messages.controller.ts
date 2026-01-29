@@ -15,6 +15,8 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
 import { MessagesService } from './messages.service';
+import { ChatGateway } from '../chat/chat.gateway';
+import { ConversationsService } from '../conversations/conversations.service';
 
 interface CreateMessageDto {
   conversation_id: number;
@@ -26,7 +28,11 @@ interface CreateMessageDto {
 
 @Controller('api/messages')
 export class MessagesController {
-  constructor(private readonly messagesService: MessagesService) {}
+  constructor(
+    private readonly messagesService: MessagesService,
+    private readonly chatGateway: ChatGateway,
+    private readonly conversationsService: ConversationsService,
+  ) {}
 
   @Post()
   async create(@Body() dto: CreateMessageDto) {
@@ -98,6 +104,18 @@ export class MessagesController {
   @Patch('conversation/:conversationId/read-operator')
   async markAsReadByOperator(@Param('conversationId', ParseIntPipe) conversationId: number) {
     await this.messagesService.markConversationAsReadByOperator(conversationId);
+    
+    // Загружаем обновленные сообщения и отправляем клиенту
+    const conversation = await this.conversationsService.findById(conversationId);
+    const messages = await this.messagesService.findByConversation(conversationId);
+    
+    // Отправляем обновленные сообщения клиенту
+    messages.forEach((message) => {
+      if (message.read_by_operator_at && message.sender_type === 'client') {
+        this.chatGateway.sendToClient(conversation.client_id, 'message:updated', message);
+      }
+    });
+    
     return { success: true };
   }
 
@@ -116,6 +134,15 @@ export class MessagesController {
   @Patch(':messageId/read-operator')
   async markMessageAsReadByOperator(@Param('messageId', ParseIntPipe) messageId: number) {
     const message = await this.messagesService.markAsReadByOperator(messageId);
+    
+    // Отправляем обновление клиенту, если сообщение было от клиента
+    if (message && message.sender_type === 'client') {
+      const conversation = await this.conversationsService.findById(message.conversation_id);
+      if (conversation) {
+        this.chatGateway.sendToClient(conversation.client_id, 'message:updated', message);
+      }
+    }
+    
     return { success: true, message };
   }
 }
