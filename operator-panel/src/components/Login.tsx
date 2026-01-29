@@ -70,11 +70,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, apiUrl }) => {
           </button>
         </form>
 
-        <div className="login-info">
-          <p>Тестовые данные:</p>
-          <p>Email: <strong>admin@example.com</strong></p>
-          <p>Пароль: <strong>admin123</strong></p>
-        </div>
+        
       </div>
     </div>
   );
