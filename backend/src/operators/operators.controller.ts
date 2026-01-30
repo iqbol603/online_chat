@@ -9,13 +9,25 @@ import {
   UseGuards,
   Delete,
   Request,
+  Req,
   BadRequestException,
-  Query,
+  UsePipes,
+  PipeTransform,
+  ArgumentMetadata,
+  Injectable,
 } from '@nestjs/common';
 import { OperatorsService } from './operators.service';
 import { IsEmail, IsString, MinLength, IsEnum, IsInt, IsOptional } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OperatorStatus } from '../entities/operator.entity';
+
+// Кастомный pipe, который ничего не делает - полностью обходит ValidationPipe
+@Injectable()
+class NoValidationPipe implements PipeTransform {
+  transform(value: any, metadata: ArgumentMetadata) {
+    return value;
+  }
+}
 
 class CreateOperatorDto {
   @IsString()
@@ -176,19 +188,19 @@ export class OperatorsController {
 
   @Get('statistics')
   @UseGuards(JwtAuthGuard)
+  @UsePipes(new NoValidationPipe())
   async getStatistics(
-    @Query('startDate') startDateStr: any,
-    @Query('endDate') endDateStr: any,
-    @Request() req: any,
+    @Req() req: any,
   ) {
     const user = req.user;
     if (!user || (user.role !== 'admin' && user.role !== 'supervisor')) {
       throw new BadRequestException('Access denied. Supervisor or Admin role required.');
     }
 
-    // Преобразуем в строки, если они не undefined
-    const startDateStrValue: string | undefined = startDateStr ? String(startDateStr) : undefined;
-    const endDateStrValue: string | undefined = endDateStr ? String(endDateStr) : undefined;
+    // Получаем query параметры напрямую из req.query, полностью минуя ValidationPipe
+    const query = req.query || {};
+    const startDateStrValue: string | undefined = query.startDate ? String(query.startDate) : undefined;
+    const endDateStrValue: string | undefined = query.endDate ? String(query.endDate) : undefined;
 
     // По умолчанию - текущий месяц
     const now = new Date();
