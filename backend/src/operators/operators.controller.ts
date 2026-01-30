@@ -10,6 +10,7 @@ import {
   Delete,
   Request,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { OperatorsService } from './operators.service';
 import { IsEmail, IsString, MinLength, IsEnum, IsInt, IsOptional } from 'class-validator';
@@ -176,34 +177,37 @@ export class OperatorsController {
   @Get('statistics')
   @UseGuards(JwtAuthGuard)
   async getStatistics(
-    @Request() req?: any,
+    @Query('startDate') startDateStr: any,
+    @Query('endDate') endDateStr: any,
+    @Request() req: any,
   ) {
-    const user = req?.user;
-    // Получаем query параметры напрямую из req.query, минуя ValidationPipe
-    const startDateStr = req?.query?.startDate as string | undefined;
-    const endDateStr = req?.query?.endDate as string | undefined;
+    const user = req.user;
     if (!user || (user.role !== 'admin' && user.role !== 'supervisor')) {
       throw new BadRequestException('Access denied. Supervisor or Admin role required.');
     }
+
+    // Преобразуем в строки, если они не undefined
+    const startDateStrValue: string | undefined = startDateStr ? String(startDateStr) : undefined;
+    const endDateStrValue: string | undefined = endDateStr ? String(endDateStr) : undefined;
 
     // По умолчанию - текущий месяц
     const now = new Date();
     let startDate: Date;
     let endDate: Date;
 
-    if (startDateStr && endDateStr) {
+    if (startDateStrValue && endDateStrValue) {
       // Проверка формата даты (YYYY-MM-DD)
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(startDateStr)) {
+      if (!dateRegex.test(startDateStrValue)) {
         throw new BadRequestException('Invalid startDate format. Expected format: YYYY-MM-DD');
       }
-      if (!dateRegex.test(endDateStr)) {
+      if (!dateRegex.test(endDateStrValue)) {
         throw new BadRequestException('Invalid endDate format. Expected format: YYYY-MM-DD');
       }
 
       // Валидация дат
-      startDate = new Date(startDateStr);
-      endDate = new Date(endDateStr);
+      startDate = new Date(startDateStrValue);
+      endDate = new Date(endDateStrValue);
 
       // Проверка валидности дат
       if (isNaN(startDate.getTime())) {
