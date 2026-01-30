@@ -9,10 +9,7 @@ import {
   UseGuards,
   Delete,
   Request,
-  Query,
   BadRequestException,
-  UsePipes,
-  ValidationPipe,
 } from '@nestjs/common';
 import { OperatorsService } from './operators.service';
 import { IsEmail, IsString, MinLength, IsEnum, IsInt, IsOptional } from 'class-validator';
@@ -178,13 +175,13 @@ export class OperatorsController {
 
   @Get('statistics')
   @UseGuards(JwtAuthGuard)
-  @UsePipes(new ValidationPipe({ transform: false, whitelist: false }))
   async getStatistics(
-    @Query('startDate') startDateStr?: string,
-    @Query('endDate') endDateStr?: string,
     @Request() req?: any,
   ) {
     const user = req?.user;
+    // Получаем query параметры напрямую из req.query, минуя ValidationPipe
+    const startDateStr = req?.query?.startDate as string | undefined;
+    const endDateStr = req?.query?.endDate as string | undefined;
     if (!user || (user.role !== 'admin' && user.role !== 'supervisor')) {
       throw new BadRequestException('Access denied. Supervisor or Admin role required.');
     }
