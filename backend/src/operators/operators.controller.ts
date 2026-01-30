@@ -11,9 +11,11 @@ import {
   Request,
   Query,
   BadRequestException,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { OperatorsService } from './operators.service';
-import { IsEmail, IsString, MinLength, IsEnum, IsInt, IsOptional, IsDateString } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsEnum, IsInt, IsOptional } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OperatorStatus } from '../entities/operator.entity';
 
@@ -176,6 +178,7 @@ export class OperatorsController {
 
   @Get('statistics')
   @UseGuards(JwtAuthGuard)
+  @UsePipes(new ValidationPipe({ transform: false, whitelist: false }))
   async getStatistics(
     @Query('startDate') startDateStr?: string,
     @Query('endDate') endDateStr?: string,

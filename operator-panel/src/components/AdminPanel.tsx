@@ -208,11 +208,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
       setShowStatistics(true);
     } catch (error: any) {
       console.error('Error loading statistics:', error);
+      console.error('Error response:', error.response?.data);
       const errorMessage = error.response?.data?.message || 
                           error.response?.data?.error || 
                           error.message || 
                           'Ошибка загрузки статистики';
-      alert(errorMessage);
+      alert(`Ошибка: ${errorMessage}\n\nПроверьте консоль для подробностей.`);
     } finally {
       setLoadingStatistics(false);
     }
