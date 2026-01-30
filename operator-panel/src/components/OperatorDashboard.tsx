@@ -33,6 +33,7 @@ interface Conversation {
     phone: string;
     email?: string;
     channel: string;
+    language?: 'ru' | 'tj' | 'en';
   };
   messages?: Message[];
   created_at: string;
