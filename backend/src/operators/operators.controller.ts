@@ -10,6 +10,7 @@ import {
   Delete,
   Request,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { OperatorsService } from './operators.service';
 import { IsEmail, IsString, MinLength, IsEnum, IsInt, IsOptional, IsDateString } from 'class-validator';
@@ -69,6 +70,16 @@ class UpdateOperatorDto {
   max_active_chats?: number;
 }
 
+class StatisticsQueryDto {
+  @IsOptional()
+  @IsDateString({}, { message: 'startDate must be a valid date in format YYYY-MM-DD' })
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'endDate must be a valid date in format YYYY-MM-DD' })
+  endDate?: string;
+}
+
 @Controller('api/operators')
 export class OperatorsController {
   constructor(private readonly operatorsService: OperatorsService) {}
@@ -80,7 +91,7 @@ export class OperatorsController {
     if (user && user.role === 'admin') {
       return await this.operatorsService.create(dto);
     }
-    throw new Error('Access denied. Admin role required.');
+    throw new BadRequestException('Access denied. Admin role required.');
   }
 
   @Get()
@@ -90,7 +101,7 @@ export class OperatorsController {
     if (user && (user.role === 'admin' || user.role === 'supervisor')) {
       return await this.operatorsService.findAll();
     }
-    throw new Error('Access denied. Supervisor or Admin role required.');
+    throw new BadRequestException('Access denied. Supervisor or Admin role required.');
   }
 
   @Get('online')
@@ -144,7 +155,7 @@ export class OperatorsController {
       await this.operatorsService.removeFromQueue(operatorId, queueId);
       return { success: true };
     }
-    throw new Error('Access denied. Supervisor or Admin role required.');
+    throw new BadRequestException('Access denied. Supervisor or Admin role required.');
   }
 
   // Общий маршрут обновления должен быть последним
@@ -157,7 +168,7 @@ export class OperatorsController {
   ) {
     const user = req?.user;
     if (!user || user.role !== 'admin') {
-      throw new Error('Access denied. Admin role required.');
+      throw new BadRequestException('Access denied. Admin role required.');
     }
     return await this.operatorsService.update(id, data);
   }
@@ -170,19 +181,19 @@ export class OperatorsController {
       await this.operatorsService.delete(id);
       return { success: true };
     }
-    throw new Error('Access denied. Admin role required.');
+    throw new BadRequestException('Access denied. Admin role required.');
   }
 
   @Get('statistics')
   @UseGuards(JwtAuthGuard)
   async getStatistics(
-    @Query('startDate') startDateStr?: string,
-    @Query('endDate') endDateStr?: string,
+    @Query() query: StatisticsQueryDto,
     @Request() req?: any,
   ) {
+    const { startDate: startDateStr, endDate: endDateStr } = query;
     const user = req?.user;
     if (!user || (user.role !== 'admin' && user.role !== 'supervisor')) {
-      throw new Error('Access denied. Supervisor or Admin role required.');
+      throw new BadRequestException('Access denied. Supervisor or Admin role required.');
     }
 
     // По умолчанию - текущий месяц
@@ -191,24 +202,46 @@ export class OperatorsController {
     let endDate: Date;
 
     if (startDateStr && endDateStr) {
+      // Валидация дат
       startDate = new Date(startDateStr);
       endDate = new Date(endDateStr);
+
+      // Проверка валидности дат
+      if (isNaN(startDate.getTime())) {
+        throw new BadRequestException('Invalid startDate format. Expected format: YYYY-MM-DD');
+      }
+      if (isNaN(endDate.getTime())) {
+        throw new BadRequestException('Invalid endDate format. Expected format: YYYY-MM-DD');
+      }
+
+      // Проверка, что startDate <= endDate
+      if (startDate > endDate) {
+        throw new BadRequestException('startDate must be less than or equal to endDate');
+      }
+
+      // Устанавливаем время на начало дня для startDate
+      startDate.setHours(0, 0, 0, 0);
       // Устанавливаем время на конец дня для endDate
       endDate.setHours(23, 59, 59, 999);
     } else {
       // Текущий месяц
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate.setHours(0, 0, 0, 0);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     }
 
-    const statistics = await this.operatorsService.getStatistics(startDate, endDate);
-    return {
-      period: {
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-      },
-      statistics,
-    };
+    try {
+      const statistics = await this.operatorsService.getStatistics(startDate, endDate);
+      return {
+        period: {
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+        },
+        statistics,
+      };
+    } catch (error) {
+      throw new BadRequestException(`Error getting statistics: ${error.message}`);
+    }
   }
 }
 
