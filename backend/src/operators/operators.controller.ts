@@ -72,11 +72,11 @@ class UpdateOperatorDto {
 
 class StatisticsQueryDto {
   @IsOptional()
-  @IsDateString({}, { message: 'startDate must be a valid date in format YYYY-MM-DD' })
+  @IsString()
   startDate?: string;
 
   @IsOptional()
-  @IsDateString({}, { message: 'endDate must be a valid date in format YYYY-MM-DD' })
+  @IsString()
   endDate?: string;
 }
 
@@ -202,16 +202,25 @@ export class OperatorsController {
     let endDate: Date;
 
     if (startDateStr && endDateStr) {
+      // Проверка формата даты (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(startDateStr)) {
+        throw new BadRequestException('Invalid startDate format. Expected format: YYYY-MM-DD');
+      }
+      if (!dateRegex.test(endDateStr)) {
+        throw new BadRequestException('Invalid endDate format. Expected format: YYYY-MM-DD');
+      }
+
       // Валидация дат
       startDate = new Date(startDateStr);
       endDate = new Date(endDateStr);
 
       // Проверка валидности дат
       if (isNaN(startDate.getTime())) {
-        throw new BadRequestException('Invalid startDate format. Expected format: YYYY-MM-DD');
+        throw new BadRequestException('Invalid startDate. Please provide a valid date.');
       }
       if (isNaN(endDate.getTime())) {
-        throw new BadRequestException('Invalid endDate format. Expected format: YYYY-MM-DD');
+        throw new BadRequestException('Invalid endDate. Please provide a valid date.');
       }
 
       // Проверка, что startDate <= endDate
