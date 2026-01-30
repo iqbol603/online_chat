@@ -526,7 +526,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
         </div>
       </header>
 
-      {isAdmin && (
+      {(isAdmin || isSupervisor) && (
         <div className="tabs">
           <button
             className={`tab ${activeTab === 'chats' ? 'active' : ''}`}
@@ -538,13 +538,13 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
             className={`tab ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => setActiveTab('admin')}
           >
-            ⚙️ Управление операторами
+            {isAdmin ? '⚙️ Управление операторами' : '📊 Статистика'}
           </button>
         </div>
       )}
 
-      {activeTab === 'admin' && isAdmin ? (
-        <AdminPanel apiUrl={apiUrl} />
+      {activeTab === 'admin' && (isAdmin || isSupervisor) ? (
+        <AdminPanel apiUrl={apiUrl} operatorRole={operator.role as 'operator' | 'supervisor' | 'admin'} />
       ) : (
         <div className="dashboard-content">
         <div className="conversations-sidebar">

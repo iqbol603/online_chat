@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './AdminPanel.css';
 
@@ -13,9 +13,20 @@ interface Operator {
 
 interface AdminPanelProps {
   apiUrl: string;
+  operatorRole?: 'operator' | 'supervisor' | 'admin';
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl }) => {
+interface OperatorStatistics {
+  operator_id: number;
+  name: string;
+  email: string;
+  role: string;
+  total_closed: number;
+  total_rated: number;
+  average_rating: number | null;
+}
+
+const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
   const [operators, setOperators] = useState<Operator[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -27,10 +38,51 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl }) => {
     role: 'operator' as 'operator' | 'supervisor' | 'admin',
     max_active_chats: 5,
   });
+  
+  // Статистика
+  const [showStatistics, setShowStatistics] = useState(false);
+  const [statistics, setStatistics] = useState<OperatorStatistics[]>([]);
+  const [loadingStatistics, setLoadingStatistics] = useState(false);
+  const [statisticsPeriod, setStatisticsPeriod] = useState({
+    startDate: '',
+    endDate: '',
+  });
+
+  const canViewStatistics = operatorRole === 'admin' || operatorRole === 'supervisor';
+  const statisticsLoadedRef = useRef(false);
 
   useEffect(() => {
-    loadOperators();
+    if (operatorRole === 'admin') {
+      loadOperators();
+    }
+    // Устанавливаем период по умолчанию (текущий месяц)
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    setStatisticsPeriod({
+      startDate: startOfMonth.toISOString().split('T')[0],
+      endDate: endOfMonth.toISOString().split('T')[0],
+    });
+    // Автоматически показываем статистику для супервизоров
+    if (canViewStatistics && operatorRole === 'supervisor') {
+      setShowStatistics(true);
+    }
   }, []);
+
+  useEffect(() => {
+    // Автоматически загружаем статистику для супервизоров при открытии
+    if (
+      canViewStatistics &&
+      operatorRole === 'supervisor' &&
+      showStatistics &&
+      !statisticsLoadedRef.current &&
+      statisticsPeriod.startDate &&
+      statisticsPeriod.endDate
+    ) {
+      statisticsLoadedRef.current = true;
+      loadStatistics();
+    }
+  }, [showStatistics, statisticsPeriod.startDate, statisticsPeriod.endDate]);
 
   const loadOperators = async () => {
     try {
@@ -138,16 +190,150 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl }) => {
     return <span className={`status-badge ${badge.class}`}>{badge.text}</span>;
   };
 
+  const loadStatistics = async () => {
+    if (!statisticsPeriod.startDate || !statisticsPeriod.endDate) {
+      alert('Выберите период для статистики');
+      return;
+    }
+
+    setLoadingStatistics(true);
+    try {
+      const response = await axios.get(`${apiUrl}/operators/statistics`, {
+        params: {
+          startDate: statisticsPeriod.startDate,
+          endDate: statisticsPeriod.endDate,
+        },
+      });
+      setStatistics(response.data.statistics);
+      setShowStatistics(true);
+    } catch (error: any) {
+      console.error('Error loading statistics:', error);
+      alert(error.response?.data?.message || 'Ошибка загрузки статистики');
+    } finally {
+      setLoadingStatistics(false);
+    }
+  };
+
+
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h2>Управление операторами</h2>
-        <button onClick={() => { setShowForm(true); resetForm(); setEditingOperator(null); }} className="btn-primary">
-          + Создать оператора
-        </button>
+        <h2>{operatorRole === 'admin' ? 'Управление операторами' : 'Статистика операторов'}</h2>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {canViewStatistics && (
+            <button
+              onClick={() => {
+                setShowStatistics(!showStatistics);
+                if (!showStatistics && statistics.length === 0) {
+                  loadStatistics();
+                }
+              }}
+              className="btn-secondary"
+            >
+              {showStatistics ? '📊 Скрыть статистику' : '📊 Статистика'}
+            </button>
+          )}
+          {operatorRole === 'admin' && (
+            <button onClick={() => { setShowForm(true); resetForm(); setEditingOperator(null); }} className="btn-primary">
+              + Создать оператора
+            </button>
+          )}
+        </div>
       </div>
 
-      {showForm && (
+      {canViewStatistics && (
+        <div className="statistics-section">
+          {!showStatistics && (
+            <div style={{ marginBottom: '20px' }}>
+              <button
+                onClick={() => {
+                  setShowStatistics(true);
+                  if (statistics.length === 0) {
+                    loadStatistics();
+                  }
+                }}
+                className="btn-primary"
+              >
+                📊 Показать статистику
+              </button>
+            </div>
+          )}
+          {showStatistics && (
+            <>
+              <h3>Статистика по операторам</h3>
+          <div className="statistics-period">
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label>Период:</label>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <input
+                  type="date"
+                  value={statisticsPeriod.startDate}
+                  onChange={(e) => setStatisticsPeriod({ ...statisticsPeriod, startDate: e.target.value })}
+                  style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+                <span>—</span>
+                <input
+                  type="date"
+                  value={statisticsPeriod.endDate}
+                  onChange={(e) => setStatisticsPeriod({ ...statisticsPeriod, endDate: e.target.value })}
+                  style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+                <button
+                  onClick={loadStatistics}
+                  className="btn-primary"
+                  disabled={loadingStatistics}
+                  style={{ padding: '8px 16px' }}
+                >
+                  {loadingStatistics ? 'Загрузка...' : 'Показать'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {statistics.length > 0 ? (
+            <div className="statistics-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Оператор</th>
+                    <th>Email</th>
+                    <th>Роль</th>
+                    <th>Обслужено абонентов</th>
+                    <th>С оценкой</th>
+                    <th>Средняя оценка</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statistics.map((stat) => (
+                    <tr key={stat.operator_id}>
+                      <td>{stat.name}</td>
+                      <td>{stat.email}</td>
+                      <td>{getRoleBadge(stat.role)}</td>
+                      <td>{stat.total_closed}</td>
+                      <td>{stat.total_rated}</td>
+                      <td>
+                        {stat.average_rating !== null ? (
+                          <span className="rating-value">
+                            {stat.average_rating.toFixed(1)} ⭐
+                          </span>
+                        ) : (
+                          <span style={{ color: '#999' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-state">Нет данных за выбранный период</div>
+          )}
+            </>
+          )}
+        </div>
+      )}
+
+      {operatorRole === 'admin' && showForm && (
         <div className="admin-form-modal">
           <div className="admin-form-content">
             <h3>{editingOperator ? 'Редактировать оператора' : 'Создать оператора'}</h3>
@@ -229,53 +415,55 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl }) => {
         </div>
       )}
 
-      <div className="operators-table">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Имя</th>
-              <th>Email</th>
-              <th>Роль</th>
-              <th>Статус</th>
-              <th>Макс. чатов</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {operators.map((operator) => (
-              <tr key={operator.operator_id}>
-                <td>{operator.operator_id}</td>
-                <td>{operator.name}</td>
-                <td>{operator.email}</td>
-                <td>{getRoleBadge(operator.role)}</td>
-                <td>{getStatusBadge(operator.status_presence)}</td>
-                <td>{operator.max_active_chats}</td>
-                <td>
-                  <button
-                    onClick={() => handleEdit(operator)}
-                    className="btn-edit"
-                    title="Редактировать"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => handleDelete(operator.operator_id)}
-                    className="btn-delete"
-                    title="Удалить"
-                    disabled={operator.role === 'admin'}
-                  >
-                    🗑️
-                  </button>
-                </td>
+      {operatorRole === 'admin' && (
+        <div className="operators-table">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Имя</th>
+                <th>Email</th>
+                <th>Роль</th>
+                <th>Статус</th>
+                <th>Макс. чатов</th>
+                <th>Действия</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {operators.length === 0 && (
-          <div className="empty-state">Нет операторов</div>
-        )}
-      </div>
+            </thead>
+            <tbody>
+              {operators.map((operator) => (
+                <tr key={operator.operator_id}>
+                  <td>{operator.operator_id}</td>
+                  <td>{operator.name}</td>
+                  <td>{operator.email}</td>
+                  <td>{getRoleBadge(operator.role)}</td>
+                  <td>{getStatusBadge(operator.status_presence)}</td>
+                  <td>{operator.max_active_chats}</td>
+                  <td>
+                    <button
+                      onClick={() => handleEdit(operator)}
+                      className="btn-edit"
+                      title="Редактировать"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => handleDelete(operator.operator_id)}
+                      className="btn-delete"
+                      title="Удалить"
+                      disabled={operator.role === 'admin'}
+                    >
+                      🗑️
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {operators.length === 0 && (
+            <div className="empty-state">Нет операторов</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

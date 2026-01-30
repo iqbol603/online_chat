@@ -9,9 +9,10 @@ import {
   UseGuards,
   Delete,
   Request,
+  Query,
 } from '@nestjs/common';
 import { OperatorsService } from './operators.service';
-import { IsEmail, IsString, MinLength, IsEnum, IsInt, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsEnum, IsInt, IsOptional, IsDateString } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OperatorStatus } from '../entities/operator.entity';
 
@@ -170,6 +171,44 @@ export class OperatorsController {
       return { success: true };
     }
     throw new Error('Access denied. Admin role required.');
+  }
+
+  @Get('statistics')
+  @UseGuards(JwtAuthGuard)
+  async getStatistics(
+    @Query('startDate') startDateStr?: string,
+    @Query('endDate') endDateStr?: string,
+    @Request() req?: any,
+  ) {
+    const user = req?.user;
+    if (!user || (user.role !== 'admin' && user.role !== 'supervisor')) {
+      throw new Error('Access denied. Supervisor or Admin role required.');
+    }
+
+    // По умолчанию - текущий месяц
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateStr && endDateStr) {
+      startDate = new Date(startDateStr);
+      endDate = new Date(endDateStr);
+      // Устанавливаем время на конец дня для endDate
+      endDate.setHours(23, 59, 59, 999);
+    } else {
+      // Текущий месяц
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+
+    const statistics = await this.operatorsService.getStatistics(startDate, endDate);
+    return {
+      period: {
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+      },
+      statistics,
+    };
   }
 }
 

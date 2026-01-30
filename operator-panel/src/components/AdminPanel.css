@@ -219,4 +219,64 @@
   font-size: 14px;
 }
 
+.statistics-section {
+  margin-top: 32px;
+  padding: 24px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.statistics-section h3 {
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 20px;
+}
+
+.statistics-period {
+  margin-bottom: 24px;
+}
+
+.statistics-table {
+  margin-top: 20px;
+  overflow-x: auto;
+}
+
+.statistics-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.statistics-table th,
+.statistics-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.statistics-table th {
+  background: #667eea;
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statistics-table tr:hover {
+  background: #f5f5f5;
+}
+
+.statistics-table tr:last-child td {
+  border-bottom: none;
+}
+
+.rating-value {
+  font-weight: 600;
+  color: #f57c00;
+  font-size: 15px;
+}
+
 

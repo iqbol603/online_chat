@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Operator, OperatorStatus } from '../entities/operator.entity';
 import { OperatorQueue } from '../entities/operator-queue.entity';
+import { Conversation } from '../entities/conversation.entity';
 
 @Injectable()
 export class OperatorsService {
@@ -12,6 +13,8 @@ export class OperatorsService {
     private operatorsRepository: Repository<Operator>,
     @InjectRepository(OperatorQueue)
     private operatorQueuesRepository: Repository<OperatorQueue>,
+    @InjectRepository(Conversation)
+    private conversationsRepository: Repository<Conversation>,
   ) {}
 
   async create(data: {
@@ -166,6 +169,55 @@ export class OperatorsService {
 
   async delete(operatorId: number): Promise<void> {
     await this.operatorsRepository.delete(operatorId);
+  }
+
+  async getStatistics(startDate: Date, endDate: Date) {
+    // Получаем всех операторов
+    const operators = await this.operatorsRepository.find({
+      order: { name: 'ASC' },
+    });
+
+    // Для каждого оператора считаем статистику
+    const statistics = await Promise.all(
+      operators.map(async (operator) => {
+        // Количество закрытых разговоров за период
+        const closedConversations = await this.conversationsRepository.find({
+          where: {
+            assigned_operator_id: operator.operator_id,
+            status: 'closed',
+            closed_at: Between(startDate, endDate),
+          },
+        });
+
+        const totalClosed = closedConversations.length;
+
+        // Средняя оценка (только для разговоров с оценкой)
+        const ratedConversations = closedConversations.filter(
+          (conv) => conv.rating !== null && conv.rating !== undefined,
+        );
+
+        let averageRating: number | null = null;
+        if (ratedConversations.length > 0) {
+          const sum = ratedConversations.reduce(
+            (acc, conv) => acc + conv.rating!,
+            0,
+          );
+          averageRating = Math.round((sum / ratedConversations.length) * 10) / 10; // Округляем до 1 знака
+        }
+
+        return {
+          operator_id: operator.operator_id,
+          name: operator.name,
+          email: operator.email,
+          role: operator.role,
+          total_closed: totalClosed,
+          total_rated: ratedConversations.length,
+          average_rating: averageRating,
+        };
+      }),
+    );
+
+    return statistics;
   }
 }
 

@@ -4,9 +4,10 @@ import { OperatorsController } from './operators.controller';
 import { OperatorsService } from './operators.service';
 import { Operator } from '../entities/operator.entity';
 import { OperatorQueue } from '../entities/operator-queue.entity';
+import { Conversation } from '../entities/conversation.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Operator, OperatorQueue])],
+  imports: [TypeOrmModule.forFeature([Operator, OperatorQueue, Conversation])],
   controllers: [OperatorsController],
   providers: [OperatorsService],
   exports: [OperatorsService],
