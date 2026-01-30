@@ -70,16 +70,6 @@ class UpdateOperatorDto {
   max_active_chats?: number;
 }
 
-class StatisticsQueryDto {
-  @IsOptional()
-  @IsString()
-  startDate?: string;
-
-  @IsOptional()
-  @IsString()
-  endDate?: string;
-}
-
 @Controller('api/operators')
 export class OperatorsController {
   constructor(private readonly operatorsService: OperatorsService) {}
@@ -187,10 +177,10 @@ export class OperatorsController {
   @Get('statistics')
   @UseGuards(JwtAuthGuard)
   async getStatistics(
-    @Query() query: StatisticsQueryDto,
+    @Query('startDate') startDateStr?: string,
+    @Query('endDate') endDateStr?: string,
     @Request() req?: any,
   ) {
-    const { startDate: startDateStr, endDate: endDateStr } = query;
     const user = req?.user;
     if (!user || (user.role !== 'admin' && user.role !== 'supervisor')) {
       throw new BadRequestException('Access denied. Supervisor or Admin role required.');
