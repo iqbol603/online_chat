@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { AppModule } from './app.module';
 import * as os from 'os';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -22,13 +22,13 @@ async function bootstrap() {
     prefix: '/uploads',
   });
   
-  // Валидация
+  // Валидация - отключаем enableImplicitConversion чтобы избежать проблем с query параметрами
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
-    forbidNonWhitelisted: false, // Разрешаем дополнительные поля для гибкости
+    forbidNonWhitelisted: false,
     transform: true,
     transformOptions: {
-      enableImplicitConversion: true, // Автоматическое преобразование типов
+      enableImplicitConversion: false, // Отключаем автоматическое преобразование типов
     },
   }));
 
