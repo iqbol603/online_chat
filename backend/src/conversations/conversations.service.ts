@@ -217,22 +217,38 @@ export class ConversationsService {
       savedAssignedOperatorId: saved.assigned_operator_id,
     });
 
-    // КРИТИЧНО: Перезагружаем диалог из БД, чтобы убедиться, что изменения сохранены
-    const reloadedConversation = await this.findById(conversationId);
-    console.log('✅ [ConversationsService.reassign] reloaded conversation from DB:', {
-      conversationId: reloadedConversation.conversation_id,
-      assigned_operator_id: reloadedConversation.assigned_operator_id,
-      status: reloadedConversation.status,
+    // КРИТИЧНО: Используем явный запрос к БД без кэша для проверки
+    // Используем queryBuilder для гарантии свежих данных из БД
+    const freshConversation = await this.conversationsRepository
+      .createQueryBuilder('conversation')
+      .where('conversation.conversation_id = :id', { id: conversationId })
+      .leftJoinAndSelect('conversation.client', 'client')
+      .leftJoinAndSelect('conversation.assigned_operator', 'assigned_operator')
+      .leftJoinAndSelect('conversation.queue', 'queue')
+      .getOne();
+    
+    if (!freshConversation) {
+      throw new NotFoundException('Conversation not found after reassignment');
+    }
+    
+    console.log('✅ [ConversationsService.reassign] fresh conversation from DB query:', {
+      conversationId: freshConversation.conversation_id,
+      assigned_operator_id: freshConversation.assigned_operator_id,
+      status: freshConversation.status,
     });
-
+    
     // Проверяем, что диалог действительно переназначен
-    if (reloadedConversation.assigned_operator_id !== newOperatorId) {
+    if (freshConversation.assigned_operator_id !== newOperatorId) {
       console.error('❌ [ConversationsService.reassign] CRITICAL: Conversation was not reassigned correctly!', {
         expected: newOperatorId,
-        actual: reloadedConversation.assigned_operator_id,
+        actual: freshConversation.assigned_operator_id,
+        savedAssignedOperatorId: saved.assigned_operator_id,
       });
       throw new Error('Failed to reassign conversation: assigned_operator_id mismatch');
     }
+    
+    // Используем свежую версию из БД
+    const reloadedConversation = freshConversation;
 
     // Уведомляем нового оператора о переназначенном диалоге (диалог + история)
     if (newOperatorId) {
