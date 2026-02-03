@@ -445,6 +445,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  /**
+   * Обновить список активных диалогов для конкретного оператора.
+   * Используется, например, при переназначении диалога другим оператором.
+   */
+  public async updateOperatorActiveConversations(operatorId: number) {
+    if (!operatorId) return;
+    try {
+      const activeConversations = await this.conversationsService.findByOperator(
+        operatorId,
+        'in_progress',
+      );
+      this.sendToOperator(operatorId, 'conversations:active', activeConversations);
+    } catch (error: any) {
+      console.error('Failed to update operator active conversations:', {
+        operatorId,
+        message: error?.message,
+      });
+    }
+  }
+
   @SubscribeMessage('client:typing:start')
   async handleClientTypingStart(
     @ConnectedSocket() client: ClientSocket,

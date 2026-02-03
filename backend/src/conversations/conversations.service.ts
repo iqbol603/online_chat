@@ -1,13 +1,23 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Conversation, ConversationStatus, ConversationPriority } from '../entities/conversation.entity';
+import { ChatGateway } from '../chat/chat.gateway';
 
 @Injectable()
 export class ConversationsService {
   constructor(
     @InjectRepository(Conversation)
     private conversationsRepository: Repository<Conversation>,
+    @Inject(forwardRef(() => ChatGateway))
+    private chatGateway: ChatGateway,
   ) {}
 
   async create(data: {
@@ -185,9 +195,38 @@ export class ConversationsService {
   // Метод для Supervisor/Admin - переназначить диалог другому оператору
   async reassign(conversationId: number, newOperatorId: number): Promise<Conversation> {
     const conversation = await this.findById(conversationId);
+    const previousOperatorId = conversation.assigned_operator_id;
+
     conversation.assigned_operator_id = newOperatorId;
     conversation.assigned_at = new Date();
-    return await this.conversationsRepository.save(conversation);
+    const saved = await this.conversationsRepository.save(conversation);
+
+    // После переназначения нужно обновить списки активных диалогов у операторов
+    // 1) Новый оператор должен увидеть этот диалог в своих активных
+    if (newOperatorId) {
+      try {
+        await this.chatGateway.updateOperatorActiveConversations(newOperatorId);
+      } catch (err) {
+        console.error('Failed to update active conversations for new operator:', {
+          operatorId: newOperatorId,
+          error: (err as any)?.message,
+        });
+      }
+    }
+
+    // 2) Старый оператор (если был) должен больше не видеть этот диалог в активных
+    if (previousOperatorId && previousOperatorId !== newOperatorId) {
+      try {
+        await this.chatGateway.updateOperatorActiveConversations(previousOperatorId);
+      } catch (err) {
+        console.error('Failed to update active conversations for previous operator:', {
+          operatorId: previousOperatorId,
+          error: (err as any)?.message,
+        });
+      }
+    }
+
+    return saved;
   }
 }
 
