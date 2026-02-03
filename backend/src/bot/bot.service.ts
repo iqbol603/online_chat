@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { MessagesService } from '../messages/messages.service';
 import { ConversationsService } from '../conversations/conversations.service';
 
@@ -100,6 +100,7 @@ export class BotService {
 
   constructor(
     private messagesService: MessagesService,
+    @Inject(forwardRef(() => ConversationsService))
     private conversationsService: ConversationsService,
   ) {}
 
