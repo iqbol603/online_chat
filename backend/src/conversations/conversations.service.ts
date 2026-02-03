@@ -264,7 +264,8 @@ export class ConversationsService {
       }
     }
 
-    return saved;
+    // Возвращаем свежую версию диалога с актуальными связями
+    return await this.findById(conversationId);
   }
 }
 
