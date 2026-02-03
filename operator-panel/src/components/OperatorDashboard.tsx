@@ -182,24 +182,71 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     });
 
     newSocket.on('conversations:active', (conversations: Conversation[]) => {
+      console.log('[OperatorDashboard] received conversations:active', conversations.length);
+      // Полностью заменяем список активных диалогов (важно для переназначения)
       setActiveConversations(conversations);
       activeConversationsRef.current = conversations;
+      
+      // Если выбранный диалог больше не в списке активных - закрываем его
+      if (selectedConversationRef.current) {
+        const stillActive = conversations.some(
+          (c) => c.conversation_id === selectedConversationRef.current?.conversation_id
+        );
+        if (!stillActive) {
+          console.log('[OperatorDashboard] selected conversation no longer active, closing');
+          setSelectedConversation(null);
+          selectedConversationRef.current = null;
+          setMessages([]);
+        }
+      }
     });
 
     newSocket.on('conversation:assigned', (conversation: Conversation) => {
+      console.log('[OperatorDashboard] received conversation:assigned', conversation.conversation_id);
+      
+      // Удаляем из очереди если был там
       setQueuedConversations((prev) => {
         const next = prev.filter((c) => c.conversation_id !== conversation.conversation_id);
         queuedConversationsRef.current = next;
         return next;
       });
+      
+      // Добавляем в активные (избегаем дубликатов)
       setActiveConversations((prev) => {
-        const next = [...prev, conversation];
-        activeConversationsRef.current = next;
-        return next;
+        const exists = prev.some((c) => c.conversation_id === conversation.conversation_id);
+        if (exists) {
+          // Обновляем существующий
+          const next = prev.map((c) =>
+            c.conversation_id === conversation.conversation_id ? conversation : c
+          );
+          activeConversationsRef.current = next;
+          return next;
+        } else {
+          // Добавляем новый
+          const next = [...prev, conversation];
+          activeConversationsRef.current = next;
+          return next;
+        }
       });
+      
       // Автоматически выбираем переназначенный диалог у нового оператора
       setSelectedConversation(conversation);
       selectedConversationRef.current = conversation;
+      
+      // Загружаем историю сообщений для переназначенного диалога
+      axios
+        .get(`${apiUrl}/messages/conversation/${conversation.conversation_id}`)
+        .then((response) => {
+          setMessages(response.data);
+          scrollToBottom();
+          // Помечаем как прочитанное
+          axios
+            .patch(`${apiUrl}/messages/conversation/${conversation.conversation_id}/read-operator`)
+            .catch(console.error);
+        })
+        .catch((error) => {
+          console.error('Error loading messages for reassigned conversation:', error);
+        });
     });
 
     newSocket.on('message:new', (message: Message) => {
