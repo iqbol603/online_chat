@@ -197,6 +197,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
         activeConversationsRef.current = next;
         return next;
       });
+      // Автоматически выбираем переназначенный диалог у нового оператора
+      setSelectedConversation(conversation);
+      selectedConversationRef.current = conversation;
     });
 
     newSocket.on('message:new', (message: Message) => {

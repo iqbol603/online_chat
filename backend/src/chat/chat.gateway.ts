@@ -455,8 +455,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   public async notifyConversationReassigned(conversationId: number, newOperatorId: number) {
     if (!newOperatorId) return;
     try {
+      console.log('[ChatGateway.notifyConversationReassigned] start', {
+        conversationId,
+        newOperatorId,
+      });
+
       const conversation = await this.conversationsService.findById(conversationId);
       const messages = await this.messagesService.findByConversation(conversationId);
+
+      console.log('[ChatGateway.notifyConversationReassigned] sending events to operator', {
+        operatorId: newOperatorId,
+        hasConversation: !!conversation,
+        messagesCount: messages.length,
+      });
 
       this.sendToOperator(newOperatorId, 'conversation:assigned', conversation);
       this.sendToOperator(newOperatorId, 'messages:history', messages);
@@ -476,10 +487,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   public async updateOperatorActiveConversations(operatorId: number) {
     if (!operatorId) return;
     try {
+      console.log('[ChatGateway.updateOperatorActiveConversations] start', {
+        operatorId,
+      });
       const activeConversations = await this.conversationsService.findByOperator(
         operatorId,
         'in_progress',
       );
+      console.log('[ChatGateway.updateOperatorActiveConversations] sending conversations:active', {
+        operatorId,
+        count: activeConversations.length,
+      });
       this.sendToOperator(operatorId, 'conversations:active', activeConversations);
     } catch (error: any) {
       console.error('Failed to update operator active conversations:', {

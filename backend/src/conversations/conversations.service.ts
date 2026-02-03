@@ -194,16 +194,35 @@ export class ConversationsService {
 
   // Метод для Supervisor/Admin - переназначить диалог другому оператору
   async reassign(conversationId: number, newOperatorId: number): Promise<Conversation> {
+    console.log('🔄 [ConversationsService.reassign] called with:', {
+      conversationId,
+      newOperatorId,
+    });
+
     const conversation = await this.findById(conversationId);
     const previousOperatorId = conversation.assigned_operator_id;
+    console.log('🔄 [ConversationsService.reassign] current conversation state:', {
+      previousOperatorId,
+      status: conversation.status,
+    });
 
     conversation.assigned_operator_id = newOperatorId;
     conversation.assigned_at = new Date();
     const saved = await this.conversationsRepository.save(conversation);
+    console.log('✅ [ConversationsService.reassign] conversation saved with new operator:', {
+      conversationId: saved.conversation_id,
+      previousOperatorId,
+      newOperatorId,
+      status: saved.status,
+    });
 
     // Уведомляем нового оператора о переназначенном диалоге (диалог + история)
     if (newOperatorId) {
       try {
+        console.log('📨 [ConversationsService.reassign] notifying new operator about reassigned conversation', {
+          conversationId,
+          newOperatorId,
+        });
         await this.chatGateway.notifyConversationReassigned(conversationId, newOperatorId);
       } catch (err) {
         console.error('Failed to notify new operator about reassigned conversation:', {
@@ -218,6 +237,9 @@ export class ConversationsService {
     // 1) Новый оператор должен увидеть этот диалог в своих активных
     if (newOperatorId) {
       try {
+        console.log('📡 [ConversationsService.reassign] updating active conversations for new operator', {
+          newOperatorId,
+        });
         await this.chatGateway.updateOperatorActiveConversations(newOperatorId);
       } catch (err) {
         console.error('Failed to update active conversations for new operator:', {
@@ -230,6 +252,9 @@ export class ConversationsService {
     // 2) Старый оператор (если был) должен больше не видеть этот диалог в активных
     if (previousOperatorId && previousOperatorId !== newOperatorId) {
       try {
+        console.log('📡 [ConversationsService.reassign] updating active conversations for previous operator', {
+          previousOperatorId,
+        });
         await this.chatGateway.updateOperatorActiveConversations(previousOperatorId);
       } catch (err) {
         console.error('Failed to update active conversations for previous operator:', {
