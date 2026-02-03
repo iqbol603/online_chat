@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { OperatorsService } from '../operators/operators.service';
 import { QueuesService } from '../queues/queues.service';
 import { ConversationsService } from '../conversations/conversations.service';
@@ -8,6 +8,7 @@ export class RoutingService {
   constructor(
     private operatorsService: OperatorsService,
     private queuesService: QueuesService,
+    @Inject(forwardRef(() => ConversationsService))
     private conversationsService: ConversationsService,
   ) {}
 
