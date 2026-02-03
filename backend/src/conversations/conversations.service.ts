@@ -206,20 +206,28 @@ export class ConversationsService {
       status: conversation.status,
     });
 
-    conversation.assigned_operator_id = newOperatorId;
-    conversation.assigned_at = new Date();
-    const saved = await this.conversationsRepository.save(conversation);
-    console.log('✅ [ConversationsService.reassign] conversation saved with new operator:', {
-      conversationId: saved.conversation_id,
-      previousOperatorId,
+    // КРИТИЧНО: Используем update() для прямого UPDATE запроса к БД
+    // Это гарантирует, что изменения будут сохранены в БД
+    const updateResult = await this.conversationsRepository.update(
+      { conversation_id: conversationId },
+      {
+        assigned_operator_id: newOperatorId,
+        assigned_at: new Date(),
+      },
+    );
+    
+    console.log('✅ [ConversationsService.reassign] update result:', {
+      affected: updateResult.affected,
+      conversationId,
       newOperatorId,
-      status: saved.status,
-      savedAssignedOperatorId: saved.assigned_operator_id,
     });
 
-    // КРИТИЧНО: Используем явный запрос к БД без кэша для проверки
-    // Используем queryBuilder для гарантии свежих данных из БД
-    const freshConversation = await this.conversationsRepository
+    if (updateResult.affected === 0) {
+      throw new NotFoundException('Conversation not found or update failed');
+    }
+
+    // Перезагружаем диалог из БД с актуальными данными
+    const reloadedConversation = await this.conversationsRepository
       .createQueryBuilder('conversation')
       .where('conversation.conversation_id = :id', { id: conversationId })
       .leftJoinAndSelect('conversation.client', 'client')
@@ -227,28 +235,25 @@ export class ConversationsService {
       .leftJoinAndSelect('conversation.queue', 'queue')
       .getOne();
     
-    if (!freshConversation) {
+    if (!reloadedConversation) {
       throw new NotFoundException('Conversation not found after reassignment');
     }
     
-    console.log('✅ [ConversationsService.reassign] fresh conversation from DB query:', {
-      conversationId: freshConversation.conversation_id,
-      assigned_operator_id: freshConversation.assigned_operator_id,
-      status: freshConversation.status,
+    console.log('✅ [ConversationsService.reassign] reloaded conversation from DB:', {
+      conversationId: reloadedConversation.conversation_id,
+      assigned_operator_id: reloadedConversation.assigned_operator_id,
+      status: reloadedConversation.status,
     });
     
     // Проверяем, что диалог действительно переназначен
-    if (freshConversation.assigned_operator_id !== newOperatorId) {
+    if (reloadedConversation.assigned_operator_id !== newOperatorId) {
       console.error('❌ [ConversationsService.reassign] CRITICAL: Conversation was not reassigned correctly!', {
         expected: newOperatorId,
-        actual: freshConversation.assigned_operator_id,
-        savedAssignedOperatorId: saved.assigned_operator_id,
+        actual: reloadedConversation.assigned_operator_id,
+        updateAffected: updateResult.affected,
       });
       throw new Error('Failed to reassign conversation: assigned_operator_id mismatch');
     }
-    
-    // Используем свежую версию из БД
-    const reloadedConversation = freshConversation;
 
     // Уведомляем нового оператора о переназначенном диалоге (диалог + история)
     if (newOperatorId) {
