@@ -214,7 +214,25 @@ export class ConversationsService {
       previousOperatorId,
       newOperatorId,
       status: saved.status,
+      savedAssignedOperatorId: saved.assigned_operator_id,
     });
+
+    // КРИТИЧНО: Перезагружаем диалог из БД, чтобы убедиться, что изменения сохранены
+    const reloadedConversation = await this.findById(conversationId);
+    console.log('✅ [ConversationsService.reassign] reloaded conversation from DB:', {
+      conversationId: reloadedConversation.conversation_id,
+      assigned_operator_id: reloadedConversation.assigned_operator_id,
+      status: reloadedConversation.status,
+    });
+
+    // Проверяем, что диалог действительно переназначен
+    if (reloadedConversation.assigned_operator_id !== newOperatorId) {
+      console.error('❌ [ConversationsService.reassign] CRITICAL: Conversation was not reassigned correctly!', {
+        expected: newOperatorId,
+        actual: reloadedConversation.assigned_operator_id,
+      });
+      throw new Error('Failed to reassign conversation: assigned_operator_id mismatch');
+    }
 
     // Уведомляем нового оператора о переназначенном диалоге (диалог + история)
     if (newOperatorId) {
@@ -223,6 +241,7 @@ export class ConversationsService {
           conversationId,
           newOperatorId,
         });
+        // Используем перезагруженный диалог для уведомления
         await this.chatGateway.notifyConversationReassigned(conversationId, newOperatorId);
       } catch (err) {
         console.error('Failed to notify new operator about reassigned conversation:', {
@@ -234,6 +253,7 @@ export class ConversationsService {
     }
 
     // После переназначения нужно обновить списки активных диалогов у операторов
+    // ВАЖНО: Делаем это ПОСЛЕ того, как убедились, что диалог сохранен в БД
     // 1) Новый оператор должен увидеть этот диалог в своих активных
     if (newOperatorId) {
       try {
@@ -265,7 +285,7 @@ export class ConversationsService {
     }
 
     // Возвращаем свежую версию диалога с актуальными связями
-    return await this.findById(conversationId);
+    return reloadedConversation;
   }
 }
 

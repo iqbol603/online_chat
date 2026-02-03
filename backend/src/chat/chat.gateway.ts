@@ -494,15 +494,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         operatorId,
         'in_progress',
       );
-      console.log('[ChatGateway.updateOperatorActiveConversations] sending conversations:active', {
+      console.log('[ChatGateway.updateOperatorActiveConversations] found conversations:', {
+        operatorId,
+        count: activeConversations.length,
+        conversationIds: activeConversations.map((c) => c.conversation_id),
+      });
+      this.sendToOperator(operatorId, 'conversations:active', activeConversations);
+      console.log('[ChatGateway.updateOperatorActiveConversations] sent conversations:active', {
         operatorId,
         count: activeConversations.length,
       });
-      this.sendToOperator(operatorId, 'conversations:active', activeConversations);
     } catch (error: any) {
       console.error('Failed to update operator active conversations:', {
         operatorId,
         message: error?.message,
+        stack: error?.stack,
       });
     }
   }
