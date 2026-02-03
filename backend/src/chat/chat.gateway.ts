@@ -448,6 +448,28 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Уведомление нового оператора о том, что диалог ему переназначен:
+   * - отправляем сам диалог как conversation:assigned
+   * - отправляем историю сообщений messages:history
+   */
+  public async notifyConversationReassigned(conversationId: number, newOperatorId: number) {
+    if (!newOperatorId) return;
+    try {
+      const conversation = await this.conversationsService.findById(conversationId);
+      const messages = await this.messagesService.findByConversation(conversationId);
+
+      this.sendToOperator(newOperatorId, 'conversation:assigned', conversation);
+      this.sendToOperator(newOperatorId, 'messages:history', messages);
+    } catch (error: any) {
+      console.error('Failed to notify operator about reassigned conversation:', {
+        conversationId,
+        operatorId: newOperatorId,
+        message: error?.message,
+      });
+    }
+  }
+
+  /**
    * Обновить список активных диалогов для конкретного оператора.
    * Используется, например, при переназначении диалога другим оператором.
    */

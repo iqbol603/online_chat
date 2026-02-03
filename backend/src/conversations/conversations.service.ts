@@ -201,6 +201,19 @@ export class ConversationsService {
     conversation.assigned_at = new Date();
     const saved = await this.conversationsRepository.save(conversation);
 
+    // Уведомляем нового оператора о переназначенном диалоге (диалог + история)
+    if (newOperatorId) {
+      try {
+        await this.chatGateway.notifyConversationReassigned(conversationId, newOperatorId);
+      } catch (err) {
+        console.error('Failed to notify new operator about reassigned conversation:', {
+          conversationId,
+          operatorId: newOperatorId,
+          error: (err as any)?.message,
+        });
+      }
+    }
+
     // После переназначения нужно обновить списки активных диалогов у операторов
     // 1) Новый оператор должен увидеть этот диалог в своих активных
     if (newOperatorId) {
