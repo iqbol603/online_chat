@@ -67,9 +67,9 @@ export class BotService {
       },
     },
     slow_internet: {
-      ru: 'Возможные причины медленного интернета:\n• Перегрузка сети в часы пик\n• Проблемы с роутером\n• Много устройств подключено\n• Вирусы на устройстве\n\nПопробуйте перезагрузить роутер. Если не поможет, нужны детали.',
-      tj: 'Сабабҳои эҳтимолии интернети суст:\n• Боркашӣ дар соатҳои пик\n• Мушкилоти роутер\n• Бисёр асбобҳо пайваст шудаанд\n• Вирусҳо дар асбоб\n\nРоутерро аз нав оғоз кунед. Агар кӯмак накард, тафсилот лозим аст.',
-      en: 'Possible reasons for slow internet:\n• Network overload during peak hours\n• Router problems\n• Many devices connected\n• Viruses on device\n\nTry restarting router. If it doesn\'t help, need details.',
+      ru: 'Возможные причины медленного интернета:\n• Проблемы с роутером\n• Много устройств подключено\n• Вирусы на устройстве\n\nПопробуйте перезагрузить роутер. Если не поможет, нужны детали.',
+      tj: 'Сабабҳои эҳтимолии интернети суст:\n• Мушкилоти роутер\n• Бисёр асбобҳо пайваст шудаанд\n• Вирусҳо дар асбоб\n\nРоутерро аз нав оғоз кунед. Агар кӯмак накард, тафсилот лозим аст.',
+      en: 'Possible reasons for slow internet:\n• Router problems\n• Many devices connected\n• Viruses on device\n\nTry restarting router. If it doesn\'t help, need details.',
       buttons: {
         ru: ['Соединить с оператором'],
         tj: ['Ба оператор пайваст кардан'],
