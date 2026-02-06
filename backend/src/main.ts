@@ -39,16 +39,21 @@ async function bootstrap() {
       if (!origin) return callback(null, true);
       
       // Разрешаем localhost и локальную сеть
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)/.test(origin);
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/.test(origin);
       const isLocalNetwork = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(origin);
       
       // Разрешаем порты 3001 и 3002 (frontend и operator-panel)
       const isAllowedPort = /:300[12]/.test(origin);
       
       // Разрешаем домен сервера wifi.babilon-t.tj
-      const isServerDomain = /^https?:\/\/wifi\.babilon-t\.tj/.test(origin);
+      const isServerDomain = /^https?:\/\/wifi\.babilon-t\.tj/.test(origin) || /^https?:\/\/(www\.)?babilon-t\.com/.test(origin);
       
-      if ((isLocalhost || isLocalNetwork) && isAllowedPort) {
+      // Разрешаем localhost на любом порту (для разработки)
+      if (isLocalhost) {
+        return callback(null, true);
+      }
+      
+      if ((isLocalNetwork) && isAllowedPort) {
         return callback(null, true);
       }
       

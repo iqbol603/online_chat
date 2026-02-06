@@ -74,13 +74,15 @@ export class ChatController {
 
       // Отправляем приветственное сообщение от бота
       const welcomeMessage = clientLanguage === 'ru'
-        ? `Здравствуйте, ${updatedClient.name}! Я виртуальный помощник. Чем могу помочь?`
+        ? `Здравствуйте, ${updatedClient.name}! Я виртуальный помощник. Чем могу вам помочь?`
         : clientLanguage === 'tj'
         ? `Салом, ${updatedClient.name}! Ман кӯмакчии виртуалӣ ҳастам. Чӣ тавр кӯмак карда метавонам?`
-        : `Hello, ${updatedClient.name}! I'm a virtual assistant. How can I help?`;
+        : `Hello, ${updatedClient.name}! I'm a virtual assistant. How can I help you?`;
 
+      // Первые варианты для уточнения темы обращения (без привязки к технологии)
       await this.botService.sendBotMessage(conversation.conversation_id, welcomeMessage, [
         clientLanguage === 'ru' ? 'Интернет не работает' : clientLanguage === 'tj' ? 'Интернет кор намекунад' : 'Internet not working',
+        clientLanguage === 'ru' ? 'Медленный интернет' : clientLanguage === 'tj' ? 'Интернети суст' : 'Slow internet',
         clientLanguage === 'ru' ? 'Оплата' : clientLanguage === 'tj' ? 'Пардохт' : 'Payment',
         clientLanguage === 'ru' ? 'Тарифы' : clientLanguage === 'tj' ? 'Тарифҳо' : 'Tariffs',
         clientLanguage === 'ru' ? 'Соединить с оператором' : clientLanguage === 'tj' ? 'Ба оператор пайваст кардан' : 'Connect to operator',
