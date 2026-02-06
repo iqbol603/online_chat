@@ -36,10 +36,23 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin, callback) => {
       // Разрешаем запросы без origin (например, мобильные приложения, Postman)
-      if (!origin) return callback(null, true);
+
+
+
+      if (!origin) {
+        console.log('[CORS] Allowing request without origin');
+        return callback(null, true);
+      }
       
-      // Разрешаем localhost и локальную сеть
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/.test(origin);
+      console.log('[CORS] Checking origin:', origin);
+      
+      // Разрешаем localhost на любом порту (для разработки)
+      const isLocalhost = origin.includes('localhost') || 
+                         origin.includes('127.0.0.1') || 
+                         origin.includes('0.0.0.0') ||
+                         /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/.test(origin);
+      
+      // Разрешаем локальную сеть
       const isLocalNetwork = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(origin);
       
       // Разрешаем порты 3001 и 3002 (frontend и operator-panel)
@@ -50,23 +63,28 @@ async function bootstrap() {
       
       // Разрешаем localhost на любом порту (для разработки)
       if (isLocalhost) {
+        console.log('[CORS] Allowing localhost origin:', origin);
         return callback(null, true);
       }
       
-      if ((isLocalNetwork) && isAllowedPort) {
+      if (isLocalNetwork && isAllowedPort) {
+        console.log('[CORS] Allowing local network origin:', origin);
         return callback(null, true);
       }
       
       if (isServerDomain) {
+        console.log('[CORS] Allowing server domain origin:', origin);
         return callback(null, true);
       }
       
       // Проверяем явно указанные origins из переменной окружения
       const corsOrigins = process.env.CORS_ORIGIN?.split(',') || [];
       if (corsOrigins.includes(origin)) {
+        console.log('[CORS] Allowing origin from env:', origin);
         return callback(null, true);
       }
       
+      console.log('[CORS] Blocking origin:', origin);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
