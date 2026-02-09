@@ -59,6 +59,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [isClientTyping, setIsClientTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
   const [selectedOperatorId, setSelectedOperatorId] = useState<number | null>(null);
@@ -157,7 +160,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       const hostname = window.location.hostname;
       // Локально backend на 3060, на сервере backend на https://wifi.babilon-t.tj:3063
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:3060';
+        return 'http://localhost:3000';
       }
       return 'wss://wifi.babilon-t.tj:3063';
     };
@@ -429,12 +432,49 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     }
   };
 
-  const handleSendMessage = () => {
-    if (!inputText.trim() || !socket || !selectedConversation) return;
+  const handleSendMessage = async () => {
+    if ((!inputText.trim() && !selectedFile) || !socket || !selectedConversation) return;
+
+    let attachments: any[] = [];
+
+    // Если есть выбранный файл, загружаем его
+    if (selectedFile) {
+      setUploadingFile(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        const response = await axios.post(`${apiUrl}/messages/upload`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        attachments = [{
+          type: response.data.type,
+          url: response.data.url,
+          filename: response.data.filename,
+          size: response.data.size,
+          mimetype: response.data.mimetype,
+        }];
+
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        alert('Ошибка при загрузке файла');
+        setUploadingFile(false);
+        return;
+      }
+      setUploadingFile(false);
+    }
 
     socket.emit('operator:message:send', {
       conversationId: selectedConversation.conversation_id,
-      text: inputText.trim(),
+      text: inputText.trim() || (selectedFile ? `📎 ${selectedFile.name}` : ''),
+      attachments: attachments.length > 0 ? attachments : undefined,
     });
 
     // Останавливаем typing при отправке
@@ -483,8 +523,18 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     setMessages([]);
   };
 
+  const canCurrentOperatorReassign = (conversation?: Conversation | null) => {
+    if (!conversation) return false;
+    if (isSupervisor) return true;
+    // Обычный оператор может переназначать только свои активные диалоги
+    return conversation.assigned_operator_id === operator.operator_id;
+  };
+
   const handleReassignConversation = async (conversationId: number) => {
-    if (!isSupervisor) return;
+    if (!canCurrentOperatorReassign(selectedConversation)) {
+      alert('Вы можете переназначать только диалоги, назначенные на вас');
+      return;
+    }
     
     try {
       // Загружаем список операторов для выбора
@@ -671,7 +721,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                   </div>
                 </div>
                 <div className="chat-header-actions">
-                  {isSupervisor && selectedConversation && (
+                  {selectedConversation && canCurrentOperatorReassign(selectedConversation) && (
                     <button 
                       onClick={() => handleReassignConversation(selectedConversation.conversation_id)}
                       className="reassign-button"
@@ -803,6 +853,37 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
 
               <div className="chat-input-area">
                 <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="file-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    if (file && file.size > 10 * 1024 * 1024) {
+                      alert('Файл слишком большой. Максимальный размер 10MB');
+                      e.target.value = '';
+                      return;
+                    }
+                    setSelectedFile(file);
+                  }}
+                />
+                {selectedFile && (
+                  <div className="selected-file-info">
+                    📎 {selectedFile.name}{' '}
+                    <button
+                      type="button"
+                      className="clear-file-button"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = '';
+                        }
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+                <input
                   type="text"
                   value={inputText}
                   onChange={handleInputChange}
@@ -823,8 +904,12 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                   placeholder="Введите сообщение..."
                   className="message-input"
                 />
-                <button onClick={handleSendMessage} disabled={!inputText.trim()} className="send-button">
-                  Отправить
+                <button
+                  onClick={handleSendMessage}
+                  disabled={uploadingFile || (!inputText.trim() && !selectedFile)}
+                  className="send-button"
+                >
+                  {uploadingFile ? 'Отправка...' : 'Отправить'}
                 </button>
               </div>
             </>

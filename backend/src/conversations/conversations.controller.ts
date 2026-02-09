@@ -9,6 +9,7 @@ import {
   Patch,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import { IsEnum, IsOptional, IsInt, IsString, Min, Max, MaxLength } from 'class-validator';
@@ -140,10 +141,25 @@ export class ConversationsController {
     @Request() req?: any,
   ) {
     const user = req?.user;
-    if (user && (user.role === 'supervisor' || user.role === 'admin')) {
+    if (!user) {
+      throw new ForbiddenException('Authentication required');
+    }
+
+    // Admin / Supervisor могут переназначать любой диалог
+    if (user.role === 'supervisor' || user.role === 'admin') {
       return await this.conversationsService.reassign(id, operatorId);
     }
-    throw new Error('Access denied. Supervisor or Admin role required.');
+
+    // Обычный оператор может переназначать только свои диалоги
+    if (user.role === 'operator') {
+      const conversation = await this.conversationsService.findById(id);
+      if (conversation.assigned_operator_id !== user.operator_id) {
+        throw new ForbiddenException('You can only reassign conversations assigned to you');
+      }
+      return await this.conversationsService.reassign(id, operatorId);
+    }
+
+    throw new ForbiddenException('Access denied');
   }
 }
 
