@@ -590,7 +590,18 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    // Отображаем время в часовом поясе Душанбе (+5)
+    try {
+      return new Intl.DateTimeFormat('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Dushanbe',
+      }).format(date);
+    } catch {
+      return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    }
   };
 
   const getWaitingTime = (queuedAt?: string) => {

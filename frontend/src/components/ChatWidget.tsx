@@ -26,11 +26,11 @@ const getApiUrl = () => {
     // Локально: backend на 3060, на сервере: https://wifi.babilon-t.tj:3063
     if (isLocal) {
       // Если фронтенд на другом порту (например, 3001), используем localhost:3060
-      return 'http://localhost:3060/api';
+      return 'http://localhost:3000/api';
     }
     return 'https://wifi.babilon-t.tj:3063/api';
   }
-  return 'http://localhost:3060/api';
+  return 'http://localhost:3000/api';
 };
 
 const getWsUrl = () => {
@@ -53,12 +53,12 @@ const getWsUrl = () => {
        parseInt(hostname.split('.')[1] || '0') <= 31);
     
     if (isLocal) {
-      return 'http://localhost:3060';
+      return 'http://localhost:3000';
     }
     // WebSocket для https-домена
     return 'wss://wifi.babilon-t.tj:3063';
   }
-  return 'http://localhost:3060';
+  return 'http://localhost:3000';
 };
 
 const API_URL = getApiUrl();
@@ -539,7 +539,19 @@ const ChatWidget: React.FC = () => {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const locale = client?.language === 'en' ? 'en-US' : client?.language === 'tj' ? 'tg-TJ' : 'ru-RU';
-    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    // Используем часовой пояс Душанбе (+5)
+    try {
+      return new Intl.DateTimeFormat(locale, {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Dushanbe',
+      }).format(date);
+    } catch {
+      // Фолбэк, если вдруг Intl или таймзона недоступны
+      return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    }
   };
 
   const getBotName = (language?: 'ru' | 'tj' | 'en') => {
