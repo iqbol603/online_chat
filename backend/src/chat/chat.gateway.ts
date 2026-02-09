@@ -128,11 +128,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const queuedConversations = await this.conversationsService.findByStatus('queued');
     client.emit('conversations:queued', queuedConversations);
     
-    // Отправляем активные чаты оператора
-    const activeConversations = await this.conversationsService.findByOperator(
-      data.operatorId,
-      'in_progress',
-    );
+    // Отправляем активные чаты:
+    // - оператору: только его
+    // - супервизору/админу: все активные (для контроля смены)
+    const operator = await this.operatorsService.findById(data.operatorId);
+    const canSeeAllActive = operator?.role === 'admin' || operator?.role === 'supervisor';
+    const activeConversations = canSeeAllActive
+      ? await this.conversationsService.findAll('in_progress')
+      : await this.conversationsService.findByOperator(data.operatorId, 'in_progress');
     client.emit('conversations:active', activeConversations);
   }
 
@@ -490,10 +493,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.log('[ChatGateway.updateOperatorActiveConversations] start', {
         operatorId,
       });
-      const activeConversations = await this.conversationsService.findByOperator(
-        operatorId,
-        'in_progress',
-      );
+      const operator = await this.operatorsService.findById(operatorId);
+      const canSeeAllActive = operator?.role === 'admin' || operator?.role === 'supervisor';
+      const activeConversations = canSeeAllActive
+        ? await this.conversationsService.findAll('in_progress')
+        : await this.conversationsService.findByOperator(operatorId, 'in_progress');
       console.log('[ChatGateway.updateOperatorActiveConversations] found conversations:', {
         operatorId,
         count: activeConversations.length,
