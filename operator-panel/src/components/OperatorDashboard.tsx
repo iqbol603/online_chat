@@ -456,6 +456,11 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
 
   const handleAcceptConversation = async (conversationId: number) => {
     if (!socket) return;
+    // Админ и супервизор не должны принимать диалоги
+    if (isAdmin || isSupervisor) {
+      console.warn('Admins and supervisors cannot accept conversations');
+      return;
+    }
 
     socket.emit('operator:accept', { conversationId });
     
@@ -731,8 +736,12 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
               {queuedConversations.map((conv) => (
                 <div
                   key={conv.conversation_id}
-                  className="conversation-item queued"
-                  onClick={() => handleAcceptConversation(conv.conversation_id)}
+                  className={`conversation-item queued ${isAdmin || isSupervisor ? 'disabled' : ''}`}
+                  onClick={() => {
+                    if (!isAdmin && !isSupervisor) {
+                      handleAcceptConversation(conv.conversation_id);
+                    }
+                  }}
                 >
                   <div className="conversation-header">
                     <strong>{conv.client?.name || 'Клиент'}</strong>

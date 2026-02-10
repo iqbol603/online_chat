@@ -268,6 +268,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const conversation = await this.conversationsService.findById(data.conversationId);
     
+    // Админ и супервизор не могут принимать диалоги
+    const operator = await this.operatorsService.findById(client.operatorId);
+    if (operator.role === 'admin' || operator.role === 'supervisor') {
+      return { error: 'Admins and supervisors cannot accept conversations' };
+    }
+
     // Проверяем, может ли оператор принять
     const canAccept = await this.operatorsService.canAcceptMoreChats(client.operatorId);
     if (!canAccept) {
@@ -276,8 +282,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Назначаем оператора
     await this.conversationsService.assignOperator(data.conversationId, client.operatorId);
-
-    const operator = await this.operatorsService.findById(client.operatorId);
     const clientData = await this.clientsService.findById(conversation.client_id);
     const systemMessageText = clientData.language === 'ru'
       ? `Оператор ${operator.name} подключился к разговору.`
