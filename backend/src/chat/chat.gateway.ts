@@ -182,48 +182,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         botResponse.buttons,
       );
 
-      // Если нужно передать оператору
+      // Если нужно передать оператору:
+      // - БОЛЬШЕ НЕ назначаем оператора автоматически
+      // - Диалог переводится в очередь (это уже делает botService.transferToOperator)
+      // - Обновляем список очереди для всех операторов, чтобы они сами приняли диалог
       if (botResponse.shouldTransferToOperator) {
-        const operatorId = await this.routingService.routeConversation(
-          data.conversationId,
-          conversation.queue_id,
-        );
-
-        if (operatorId) {
-          const operator = await this.operatorsService.findById(operatorId);
-          const systemMessageText = clientData.language === 'ru'
-            ? `Оператор ${operator.name} подключился к разговору.`
-            : clientData.language === 'tj'
-            ? `Оператор ${operator.name} ба муколама пайваст шуд.`
-            : `Operator ${operator.name} joined the conversation.`;
-          
-          const systemMessage = await this.messagesService.create({
-            conversation_id: data.conversationId,
-            sender_type: 'system',
-            text: systemMessageText,
-          });
-
-          // Отправляем клиенту
-          this.sendToClient(conversation.client_id, 'message:new', systemMessage);
-          
-          // Отправляем оператору
-          this.sendToOperator(operatorId, 'conversation:assigned', conversation);
-          this.sendToOperator(operatorId, 'message:new', systemMessage);
-        } else {
-          // Нет доступных операторов
-          const noOperatorText = clientData.language === 'ru'
-            ? 'Сейчас операторов нет онлайн. Оставьте сообщение — мы ответим, как только будем на связи.'
-            : clientData.language === 'tj'
-            ? 'Акнун операторҳо онлайн нестанд. Паём гузоред — мо ҳамчун ки дар тамос бошем, ҷавоб медиҳем.'
-            : 'No operators are online now. Leave a message — we will respond as soon as we are available.';
-          
-          const noOperatorMessage = await this.messagesService.create({
-            conversation_id: data.conversationId,
-            sender_type: 'system',
-            text: noOperatorText,
-          });
-          this.sendToClient(conversation.client_id, 'message:new', noOperatorMessage);
-        }
+        // Обновляем список очереди для всех операторов
+        const queuedConversations = await this.conversationsService.findByStatus('queued');
+        this.broadcastToOperators('conversations:queued', queuedConversations);
       }
 
       // Отправляем обновленную историю клиенту
