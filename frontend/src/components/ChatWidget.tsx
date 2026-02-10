@@ -26,11 +26,11 @@ const getApiUrl = () => {
     // Локально: backend на 3060, на сервере: https://wifi.babilon-t.tj:3063
     if (isLocal) {
       // Если фронтенд на другом порту (например, 3001), используем localhost:3060
-      return 'http://localhost:3000/api';
+      return 'http://localhost:3060/api';
     }
     return 'https://wifi.babilon-t.tj:3063/api';
   }
-  return 'http://localhost:3000/api';
+  return 'http://localhost:3060/api';
 };
 
 const getWsUrl = () => {
@@ -53,12 +53,12 @@ const getWsUrl = () => {
        parseInt(hostname.split('.')[1] || '0') <= 31);
     
     if (isLocal) {
-      return 'http://localhost:3000';
+      return 'http://localhost:3060';
     }
     // WebSocket для https-домена
     return 'wss://wifi.babilon-t.tj:3063';
   }
-  return 'http://localhost:3000';
+  return 'http://localhost:3060';
 };
 
 const API_URL = getApiUrl();

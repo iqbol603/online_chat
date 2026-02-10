@@ -68,7 +68,7 @@ export class BotService {
     },
     slow_internet: {
       ru: 'Возможные причины медленного интернета:\n• Проблемы с роутером\n• Много устройств подключено\n• Вирусы на устройстве\n\nПопробуйте перезагрузить роутер. Если не поможет, нужны детали.',
-      tj: 'Сабабҳои эҳтимолии интернети суст:\n• Мушкилоти роутер\n• Бисёр асбобҳо пайваст шудаанд\n• Вирусҳо дар асбоб\n\nРоутерро аз нав оғоз кунед. Агар кӯмак накард, тафсилот лозим аст.',
+      tj: 'Сабабҳои эҳтимолии интернети суст:\n• Мушкилоти роутер\n• Бисёр асбобҳо пайваст шудаанд\n• Вирусҳо дар асбоб\n\nРоутерро хомуш карда, аз нав ба кор дароред. Агар кӯмак накард, тафсилот лозим аст.',
       en: 'Possible reasons for slow internet:\n• Router problems\n• Many devices connected\n• Viruses on device\n\nTry restarting router. If it doesn\'t help, need details.',
       buttons: {
         ru: ['Соединить с оператором'],
@@ -87,9 +87,9 @@ export class BotService {
       },
     },
     contacts: {
-      ru: 'Наши контакты:\n📞 Телефон: +992 93 123 45 67\n📧 Email: support@example.com\n📍 Адрес: г. Душанбе, ул. Примерная, 123\n\nРаботаем: Пн-Пт 9:00-18:00',
-      tj: 'Тамосҳои мо:\n📞 Телефон: +992 93 123 45 67\n📧 Email: support@example.com\n📍 Суроға: Душанбе, кӯчаи Намуна, 123\n\nКор: Душ-Ҷум 9:00-18:00',
-      en: 'Our contacts:\n📞 Phone: +992 93 123 45 67\n📧 Email: support@example.com\n📍 Address: Dushanbe, Example St, 123\n\nWorking: Mon-Fri 9:00-18:00',
+      ru: 'Наши контакты:\n📞 Телефон: +992 44 600 6060\n📧 Email: info@babilon-t.com\n📍 Адрес: г. Душанбе, ул. Дехлави, 4\n\nРаботаем: Пн-Пт 9:00-18:00',
+      tj: 'Тамосҳои мо:\n📞 Телефон: +992 44 600 6060\n📧 Email: info@babilon-t.com\n📍 Суроға: Душанбе, кӯчаи Дехлави, 4\n\n Речаи кор: Душ-Ҷум 9:00-18:00',
+      en: 'Our contacts:\n📞 Phone: +992 44 600 6060\n📧 Email: info@babilon-t.com\n📍 Address: Dushanbe, Dehlavi St, 4\n\nWorking: Mon-Fri 9:00-18:00',
       buttons: {
         ru: ['Соединить с оператором'],
         tj: ['Ба оператор пайваст кардан'],
