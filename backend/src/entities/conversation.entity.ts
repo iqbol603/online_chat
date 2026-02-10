@@ -16,6 +16,7 @@ import { Message } from './message.entity';
 
 export type ConversationStatus = 'bot' | 'queued' | 'assigned' | 'in_progress' | 'closed';
 export type ConversationPriority = 'low' | 'normal' | 'high' | 'critical';
+export type ConversationClosedByType = 'client' | 'operator';
 
 @Entity('conversations')
 export class Conversation {
@@ -82,6 +83,16 @@ export class Conversation {
 
   @Column({ type: 'timestamp', nullable: true })
   closed_at: Date;
+
+  @Column({
+    type: 'enum',
+    enum: ['client', 'operator'],
+    nullable: true,
+  })
+  closed_by_type: ConversationClosedByType;
+
+  @Column({ type: 'int', nullable: true })
+  closed_by_operator_id: number;
 
   @Column({ type: 'timestamp', nullable: true })
   queued_at: Date;

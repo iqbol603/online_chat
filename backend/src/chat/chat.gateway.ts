@@ -319,6 +319,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     await this.conversationsService.close(data.conversationId);
+    await this.conversationsService.markClosedBy(data.conversationId, 'operator', client.operatorId);
 
     const clientData = await this.clientsService.findById(conversation.client_id);
     const systemMessageText = clientData.language === 'ru'
@@ -370,6 +371,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       await this.conversationsService.close(data.conversationId);
+
+      await this.conversationsService.markClosedBy(data.conversationId, 'client');
 
       const clientData = await this.clientsService.findById(conversation.client_id);
       const clientName = clientData.name || 'Клиент';

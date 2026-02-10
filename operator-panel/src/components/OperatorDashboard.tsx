@@ -235,6 +235,13 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       // Автоматически выбираем переназначенный диалог у нового оператора
       setSelectedConversation(conversation);
       selectedConversationRef.current = conversation;
+
+      // Явное уведомление оператору, что диалог ему передан / он присоединился
+      const clientNameForAssign =
+        (conversation.client && (conversation.client as any).name) ||
+        'Клиент';
+      const notifyTextAssign = `Диалог клиента ${clientNameForAssign} назначен вам`;
+      showNotification(clientNameForAssign, notifyTextAssign);
       
       // Загружаем историю сообщений для переназначенного диалога
       axios
@@ -321,12 +328,12 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       console.log('[OperatorDashboard] received conversation:closed', conversation.conversation_id);
 
       // Показываем явное уведомление, кто закрыл диалог
-      const clientName =
+      const clientNameForClose =
         (conversation.client && (conversation.client as any).name) ||
         (selectedConversationRef.current?.client as any)?.name ||
         'Клиент';
-      const notificationText = `Диалог закрыт клиентом ${clientName}`;
-      showNotification(clientName, notificationText);
+      const notificationText = `Диалог закрыт клиентом ${clientNameForClose}`;
+      showNotification(clientNameForClose, notificationText);
 
       // Удаляем диалог из активных
       setActiveConversations((prev) => {

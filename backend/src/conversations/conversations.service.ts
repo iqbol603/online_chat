@@ -8,7 +8,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { Conversation, ConversationStatus, ConversationPriority } from '../entities/conversation.entity';
+import {
+  Conversation,
+  ConversationStatus,
+  ConversationPriority,
+  ConversationClosedByType,
+} from '../entities/conversation.entity';
 import { ChatGateway } from '../chat/chat.gateway';
 
 @Injectable()
@@ -113,6 +118,20 @@ export class ConversationsService {
 
   async close(conversationId: number): Promise<Conversation> {
     return await this.updateStatus(conversationId, 'closed');
+  }
+
+  /**
+   * Отмечаем, кем был закрыт диалог (клиент или оператор)
+   */
+  async markClosedBy(
+    conversationId: number,
+    type: ConversationClosedByType,
+    operatorId?: number,
+  ): Promise<Conversation> {
+    const conversation = await this.findById(conversationId);
+    conversation.closed_by_type = type;
+    conversation.closed_by_operator_id = type === 'operator' ? operatorId ?? null : null;
+    return await this.conversationsRepository.save(conversation);
   }
 
   async findByStatus(status: ConversationStatus, queueId?: number): Promise<Conversation[]> {
