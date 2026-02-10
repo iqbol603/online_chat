@@ -274,6 +274,25 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
         });
     });
 
+    newSocket.on('conversation:accepted', (conversation: Conversation) => {
+      console.log('[OperatorDashboard] received conversation:accepted', conversation.conversation_id);
+      
+      // Обновляем выбранный диалог с актуальным assigned_operator_id
+      if (selectedConversationRef.current?.conversation_id === conversation.conversation_id) {
+        setSelectedConversation(conversation);
+        selectedConversationRef.current = conversation;
+      }
+      
+      // Обновляем диалог в списке активных
+      setActiveConversations((prev) => {
+        const next = prev.map((c) =>
+          c.conversation_id === conversation.conversation_id ? conversation : c
+        );
+        activeConversationsRef.current = next;
+        return next;
+      });
+    });
+
     newSocket.on('message:new', (message: Message) => {
       // Проверяем, открыт ли этот диалог (через ref, чтобы не ловить stale state)
       const isCurrentConversation =

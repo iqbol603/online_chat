@@ -275,7 +275,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     // Назначаем оператора
-    await this.conversationsService.assignOperator(data.conversationId, client.operatorId);
+    const updatedConversation = await this.conversationsService.assignOperator(data.conversationId, client.operatorId);
     const clientData = await this.clientsService.findById(conversation.client_id);
     const systemMessageText = clientData.language === 'ru'
       ? `Оператор ${operator.name} подключился к разговору.`
@@ -296,7 +296,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Отправляем оператору историю
     const messages = await this.messagesService.findByConversation(data.conversationId);
     client.emit('messages:history', messages);
-    client.emit('conversation:accepted', conversation);
+    // ВАЖНО: Отправляем обновлённую версию диалога с актуальным assigned_operator_id
+    client.emit('conversation:accepted', updatedConversation);
 
     // Обновляем список очереди для всех операторов
     this.broadcastToOperators('conversations:queued', await this.conversationsService.findByStatus('queued'));
