@@ -317,6 +317,26 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       scrollToBottom();
     });
 
+    newSocket.on('conversation:closed', (conversation: Conversation) => {
+      console.log('[OperatorDashboard] received conversation:closed', conversation.conversation_id);
+
+      // Удаляем диалог из активных
+      setActiveConversations((prev) => {
+        const next = prev.filter(
+          (c) => c.conversation_id !== conversation.conversation_id
+        );
+        activeConversationsRef.current = next;
+        return next;
+      });
+
+      // Если сейчас открыт этот диалог - закрываем его во UI
+      if (selectedConversationRef.current?.conversation_id === conversation.conversation_id) {
+        setSelectedConversation(null);
+        selectedConversationRef.current = null;
+        setMessages([]);
+      }
+    });
+
     newSocket.on('typing:start', (data: { conversationId: number; name?: string }) => {
       if (selectedConversationRef.current && selectedConversationRef.current.conversation_id === data.conversationId) {
         setIsClientTyping(true);

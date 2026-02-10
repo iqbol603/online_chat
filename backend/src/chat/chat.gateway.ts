@@ -372,11 +372,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.conversationsService.close(data.conversationId);
 
       const clientData = await this.clientsService.findById(conversation.client_id);
+      const clientName = clientData.name || 'Клиент';
       const systemMessageText = clientData.language === 'ru'
-        ? 'Диалог закрыт клиентом.'
+        ? `Диалог закрыт клиентом ${clientName}.`
         : clientData.language === 'tj'
-        ? 'Муколама аз ҷониби муштарӣ пӯшида шуд.'
-        : 'Dialog closed by client.';
+        ? `Муколама аз ҷониби муштарӣ ${clientName} пӯшида шуд.`
+        : `Dialog closed by client ${clientName}.`;
       
       const systemMessage = await this.messagesService.create({
         conversation_id: data.conversationId,
@@ -392,6 +393,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (conversation.assigned_operator_id) {
         this.sendToOperator(conversation.assigned_operator_id, 'message:new', systemMessage);
         this.sendToOperator(conversation.assigned_operator_id, 'conversation:closed', conversation);
+      }
+
+      // Обновляем списки активных диалогов для всех операторов,
+      // чтобы закрытый клиентом диалог сразу исчез из "Активных"
+      const operatorIds = Array.from(this.operatorSockets.keys());
+      for (const operatorId of operatorIds) {
+        await this.updateOperatorActiveConversations(operatorId);
       }
 
       console.log('Client close: Successfully closed conversation', data.conversationId);
