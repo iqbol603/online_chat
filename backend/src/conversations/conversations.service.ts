@@ -108,12 +108,34 @@ export class ConversationsService {
   }
 
   async assignOperator(conversationId: number, operatorId: number): Promise<Conversation> {
-    const conversation = await this.findById(conversationId);
-    conversation.assigned_operator_id = operatorId;
-    conversation.status = 'in_progress';
-    conversation.assigned_at = new Date();
+    // Используем прямой UPDATE, как в reassign, чтобы избежать проблем с кэшем
+    const updateResult = await this.conversationsRepository.update(
+      { conversation_id: conversationId },
+      {
+        assigned_operator_id: operatorId,
+        status: 'in_progress',
+        assigned_at: new Date(),
+      },
+    );
 
-    return await this.conversationsRepository.save(conversation);
+    if (updateResult.affected === 0) {
+      throw new NotFoundException('Conversation not found or update failed');
+    }
+
+    // Перезагружаем диалог из БД с актуальными данными
+    const reloadedConversation = await this.conversationsRepository
+      .createQueryBuilder('conversation')
+      .where('conversation.conversation_id = :id', { id: conversationId })
+      .leftJoinAndSelect('conversation.client', 'client')
+      .leftJoinAndSelect('conversation.assigned_operator', 'assigned_operator')
+      .leftJoinAndSelect('conversation.queue', 'queue')
+      .getOne();
+
+    if (!reloadedConversation) {
+      throw new NotFoundException('Conversation not found after assign');
+    }
+
+    return reloadedConversation;
   }
 
   async close(conversationId: number): Promise<Conversation> {
