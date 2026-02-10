@@ -59,6 +59,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [isClientTyping, setIsClientTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
+  const [onlineOperatorsCount, setOnlineOperatorsCount] = useState<number>(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -177,6 +178,18 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       newSocket.emit('operator:register', { operatorId: operator.operator_id });
       setStatus('online');
       updateOperatorStatus('online');
+
+      // Для админа/супервизора загружаем текущее количество онлайн-операторов
+      if (isSupervisor) {
+        axios
+          .get(`${apiUrl}/operators/online`)
+          .then((response) => {
+            setOnlineOperatorsCount(response.data.length || 0);
+          })
+          .catch((error) => {
+            console.error('Error loading online operators:', error);
+          });
+      }
     });
 
     newSocket.on('conversations:queued', (conversations: Conversation[]) => {
@@ -322,6 +335,19 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     newSocket.on('messages:history', (msgs: Message[]) => {
       setMessages(msgs);
       scrollToBottom();
+    });
+
+    // Обновление счётчика онлайн-операторов по событиям статуса (для админа/супервизора)
+    newSocket.on('operator:status:update', (data: { operatorId: number; status: 'online' | 'away' | 'offline' }) => {
+      if (!isSupervisor) return;
+
+      setOnlineOperatorsCount((prev) => {
+        if (data.status === 'offline') {
+          return Math.max(prev - 1, 0);
+        }
+        // online или away считаем как "в сети"
+        return prev + 1;
+      });
     });
 
     newSocket.on('conversation:closed', (conversation: Conversation) => {
@@ -657,6 +683,11 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
           </div>
         </div>
         <div className="header-right">
+          {(isAdmin || isSupervisor) && (
+            <div className="online-operators-counter">
+              Операторов онлайн: {onlineOperatorsCount}
+            </div>
+          )}
           <select
             value={status}
             onChange={(e) => updateOperatorStatus(e.target.value as 'online' | 'away' | 'offline')}

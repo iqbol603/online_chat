@@ -92,6 +92,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.operatorSockets.delete(client.operatorId);
       // Обновляем статус оператора на offline при отключении
       await this.operatorsService.updateStatus(client.operatorId, 'offline');
+      // Уведомляем всех операторов об изменении статуса
+      this.broadcastToOperators('operator:status:update', {
+        operatorId: client.operatorId,
+        status: 'offline',
+      });
     }
   }
 
@@ -123,6 +128,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     
     // Обновляем статус оператора на online
     await this.operatorsService.updateStatus(data.operatorId, 'online');
+    // Уведомляем всех операторов об изменении статуса
+    this.broadcastToOperators('operator:status:update', {
+      operatorId: data.operatorId,
+      status: 'online',
+    });
     
     // Отправляем список чатов в очереди
     const queuedConversations = await this.conversationsService.findByStatus('queued');
