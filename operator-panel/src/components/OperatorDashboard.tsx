@@ -73,6 +73,8 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const queuedConversationsRef = useRef<Conversation[]>([]);
   const isAdmin = operator.role === 'admin';
   const isSupervisor = operator.role === 'supervisor' || operator.role === 'admin';
+  const isAssignedToCurrent =
+    selectedConversation?.assigned_operator_id === operator.operator_id;
 
   const playNotificationSound = () => {
     try {
@@ -546,7 +548,12 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     setInputText(e.target.value);
     
     // Отправляем typing:start при начале ввода
-    if (socket && selectedConversation && selectedConversation.status === 'in_progress') {
+    if (
+      socket &&
+      selectedConversation &&
+      selectedConversation.status === 'in_progress' &&
+      isAssignedToCurrent
+    ) {
       socket.emit('operator:typing:start', { conversationId: selectedConversation.conversation_id });
       
       // Очищаем предыдущий таймер
@@ -796,6 +803,22 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                   </div>
                 </div>
                 <div className="chat-header-actions">
+                  {/* Кнопка подключения к диалогу для оператора, если диалог назначен на другого */}
+                  {selectedConversation &&
+                    !isAdmin &&
+                    !isSupervisor &&
+                    selectedConversation.status === 'in_progress' &&
+                    selectedConversation.assigned_operator_id &&
+                    selectedConversation.assigned_operator_id !== operator.operator_id && (
+                      <button
+                        onClick={() =>
+                          handleAcceptConversation(selectedConversation.conversation_id)
+                        }
+                        className="join-chat-button"
+                      >
+                        Подключиться к диалогу
+                      </button>
+                    )}
                   {selectedConversation && canCurrentOperatorReassign(selectedConversation) && (
                     <button 
                       onClick={() => handleReassignConversation(selectedConversation.conversation_id)}
@@ -968,7 +991,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                       handleSendMessage();
                       // Останавливаем typing при отправке
                       if (socket && selectedConversation) {
-                        socket.emit('operator:typing:stop', { conversationId: selectedConversation.conversation_id });
+                        socket.emit('operator:typing:stop', {
+                          conversationId: selectedConversation.conversation_id,
+                        });
                         if (typingTimeoutRef.current) {
                           clearTimeout(typingTimeoutRef.current);
                           typingTimeoutRef.current = null;
@@ -976,12 +1001,19 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                       }
                     }
                   }}
-                  placeholder="Введите сообщение..."
+                  placeholder={
+                    isAssignedToCurrent
+                      ? 'Введите сообщение...'
+                      : 'Нажмите «Подключиться к диалогу», чтобы ответить'
+                  }
                   className="message-input"
+                  disabled={!isAssignedToCurrent}
                 />
                 <button
                   onClick={handleSendMessage}
-                  disabled={uploadingFile || (!inputText.trim() && !selectedFile)}
+                  disabled={
+                    !isAssignedToCurrent || uploadingFile || (!inputText.trim() && !selectedFile)
+                  }
                   className="send-button"
                 >
                   {uploadingFile ? 'Отправка...' : 'Отправить'}
