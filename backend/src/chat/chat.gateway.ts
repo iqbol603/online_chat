@@ -293,6 +293,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Обновляем список очереди для всех операторов
     this.broadcastToOperators('conversations:queued', await this.conversationsService.findByStatus('queued'));
 
+    // ВАЖНО: Обновляем список активных диалогов для всех операторов,
+    // чтобы принятый диалог появился в разделе "Активные" без перезагрузки
+    const operatorIds = Array.from(this.operatorSockets.keys());
+    for (const operatorId of operatorIds) {
+      await this.updateOperatorActiveConversations(operatorId);
+    }
+
     return { success: true, conversation };
   }
 
