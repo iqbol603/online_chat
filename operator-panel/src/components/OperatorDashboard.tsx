@@ -320,6 +320,14 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     newSocket.on('conversation:closed', (conversation: Conversation) => {
       console.log('[OperatorDashboard] received conversation:closed', conversation.conversation_id);
 
+      // Показываем явное уведомление, кто закрыл диалог
+      const clientName =
+        (conversation.client && (conversation.client as any).name) ||
+        (selectedConversationRef.current?.client as any)?.name ||
+        'Клиент';
+      const notificationText = `Диалог закрыт клиентом ${clientName}`;
+      showNotification(clientName, notificationText);
+
       // Удаляем диалог из активных
       setActiveConversations((prev) => {
         const next = prev.filter(
