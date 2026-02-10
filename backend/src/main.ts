@@ -40,11 +40,8 @@ async function bootstrap() {
 
 
       if (!origin) {
-        console.log('[CORS] Allowing request without origin');
         return callback(null, true);
       }
-      
-      console.log('[CORS] Checking origin:', origin);
       
       // Разрешаем localhost на любом порту (для разработки)
       const isLocalhost = origin.includes('localhost') || 
@@ -63,34 +60,31 @@ async function bootstrap() {
       
       // Разрешаем localhost на любом порту (для разработки)
       if (isLocalhost) {
-        console.log('[CORS] Allowing localhost origin:', origin);
         return callback(null, true);
       }
       
       if (isLocalNetwork && isAllowedPort) {
-        console.log('[CORS] Allowing local network origin:', origin);
         return callback(null, true);
       }
       
       if (isServerDomain) {
-        console.log('[CORS] Allowing server domain origin:', origin);
         return callback(null, true);
       }
       
       // Проверяем явно указанные origins из переменной окружения
       const corsOrigins = process.env.CORS_ORIGIN?.split(',') || [];
       if (corsOrigins.includes(origin)) {
-        console.log('[CORS] Allowing origin from env:', origin);
         return callback(null, true);
       }
       
-      console.log('[CORS] Blocking origin:', origin);
+      // Логируем только блокированные запросы (важно для отладки)
+      console.warn('[CORS] Blocking origin:', origin);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
   });
 
-  const port = process.env.PORT || 3060;
+  const port = process.env.PORT || 30600;
   const host = '0.0.0.0'; // Слушаем на всех интерфейсах
   
   await app.listen(port, host);
