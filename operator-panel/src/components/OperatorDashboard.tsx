@@ -422,24 +422,13 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
 
   const loadActiveConversations = async () => {
     try {
-      // Supervisor/Admin видит все диалоги, Operator - только свои
-      if (isSupervisor) {
-        // Загружаем все диалоги для супервизора/админа
-        const response = await axios.get(`${apiUrl}/conversations/status/in_progress`);
-        const filtered = response.data.filter(
-          (c: Conversation) => c.status === 'in_progress'
-        );
-        setActiveConversations(filtered);
-        activeConversationsRef.current = filtered;
-      } else {
-        // Для обычного оператора - только свои диалоги
-        const response = await axios.get(`${apiUrl}/conversations/status/in_progress`);
-        const filtered = response.data.filter(
-          (c: Conversation) => c.status === 'in_progress' && c.assigned_operator_id === operator.operator_id
-        );
-        setActiveConversations(filtered);
-        activeConversationsRef.current = filtered;
-      }
+      // Все операторы видят все активные диалоги
+      const response = await axios.get(`${apiUrl}/conversations/status/in_progress`);
+      const filtered = response.data.filter(
+        (c: Conversation) => c.status === 'in_progress'
+      );
+      setActiveConversations(filtered);
+      activeConversationsRef.current = filtered;
     } catch (error) {
       console.error('Error loading active conversations:', error);
     }
