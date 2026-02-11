@@ -303,25 +303,32 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
             </button>
           )}
           {(operatorRole === 'admin' || operatorRole === 'supervisor') && (
-            <>
-              <button
-                onClick={() => {
-                  setShowAnalytics(!showAnalytics);
-                  if (!showAnalytics && archivedConversations.length === 0) {
-                    // Автоматически выбираем первого оператора если есть
-                    if (operators.length > 0 && !selectedOperatorId) {
-                      setSelectedOperatorId(operators[0].operator_id);
-                    }
+            <button
+              onClick={() => {
+                setShowAnalytics(!showAnalytics);
+                if (!showAnalytics && archivedConversations.length === 0) {
+                  // Автоматически выбираем первого оператора если есть
+                  if (operators.length > 0 && !selectedOperatorId) {
+                    setSelectedOperatorId(operators[0].operator_id);
                   }
-                }}
-                className="btn-secondary"
-              >
-                {showAnalytics ? '📋 Скрыть аналитику' : '📋 Аналитика'}
-              </button>
-              <button onClick={() => { setShowForm(true); resetForm(); setEditingOperator(null); }} className="btn-primary">
-                + Создать оператора
-              </button>
-            </>
+                }
+              }}
+              className="btn-secondary"
+            >
+              {showAnalytics ? '📋 Скрыть аналитику' : '📋 Аналитика'}
+            </button>
+          )}
+          {operatorRole === 'admin' && (
+            <button
+              onClick={() => {
+                setShowForm(true);
+                resetForm();
+                setEditingOperator(null);
+              }}
+              className="btn-primary"
+            >
+              + Создать оператора
+            </button>
           )}
         </div>
       </div>
