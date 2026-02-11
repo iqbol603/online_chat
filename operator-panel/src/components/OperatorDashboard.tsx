@@ -76,6 +76,11 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const isAssignedToCurrent =
     selectedConversation?.assigned_operator_id === operator.operator_id;
 
+  // Поиск по телефону
+  const [searchPhone, setSearchPhone] = useState('');
+  const [searchResults, setSearchResults] = useState<Conversation[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
   const playNotificationSound = () => {
     try {
       // Создаем звук уведомления программно
@@ -163,7 +168,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       const hostname = window.location.hostname;
       // Локально backend на 3060, на сервере backend на https://wifi.babilon-t.tj:3063
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:3060';
+        return 'http://localhost:3000';
       }
       return 'wss://wifi.babilon-t.tj:3063';
     };
@@ -429,6 +434,29 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleSearchByPhone = async () => {
+    if (!searchPhone.trim()) {
+      alert('Введите номер телефона');
+      return;
+    }
+
+    try {
+      const response = await axios.get(
+        `${apiUrl}/conversations/search/by-phone`,
+        { params: { phone: searchPhone } },
+      );
+      setSearchResults(response.data || []);
+      setShowSearchResults(true);
+    } catch (error: any) {
+      console.error('Error searching by phone:', error);
+      alert(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          'Ошибка при поиске по телефону',
+      );
+    }
   };
 
   const loadQueuedConversations = async () => {
@@ -702,6 +730,18 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
           </div>
         </div>
         <div className="header-right">
+          <div className="phone-search">
+            <input
+              type="text"
+              value={searchPhone}
+              onChange={(e) => setSearchPhone(e.target.value)}
+              placeholder="Поиск по телефону (+992...)"
+              className="phone-search-input"
+            />
+            <button onClick={handleSearchByPhone} className="phone-search-button">
+              Найти
+            </button>
+          </div>
           {(isAdmin || isSupervisor) && (
             <div className="online-operators-counter">
               Операторов онлайн: {onlineOperatorsCount}
@@ -1040,7 +1080,39 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
             </>
           ) : (
             <div className="no-conversation-selected">
-              <p>Выберите диалог из списка или примите новый из очереди</p>
+              <p>Выберите диалог из списка, примите новый из очереди или найдите по номеру телефона</p>
+
+              {showSearchResults && (
+                <div className="search-results">
+                  <h3>Результаты поиска по телефону</h3>
+                  {searchResults.length === 0 ? (
+                    <div className="empty-state">Диалоги для этого номера не найдены</div>
+                  ) : (
+                    <div className="conversation-list">
+                      {searchResults.map((conv) => (
+                        <div
+                          key={conv.conversation_id}
+                          className="conversation-item"
+                          onClick={() => handleSelectConversation(conv)}
+                        >
+                          <div className="conversation-header">
+                            <strong>{conv.client?.name || 'Клиент'}</strong>
+                            <span className="waiting-time">
+                              {formatTime(conv.created_at)}
+                            </span>
+                          </div>
+                          <div className="conversation-meta">
+                            <span>{conv.client?.phone}</span>
+                            <span className="channel-badge">
+                              {conv.client?.channel || conv.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
