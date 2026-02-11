@@ -63,6 +63,10 @@ export class ConversationsController {
   async findArchivedByOperator(
     @Param('operatorId', ParseIntPipe) operatorId: number,
     @Query('date') date: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('includeAssigned') includeAssigned?: string,
+    @Query('includeClosedBy') includeClosedBy?: string,
     @Request() req?: any,
   ) {
     const user = req?.user;
@@ -70,11 +74,27 @@ export class ConversationsController {
       throw new ForbiddenException('Access denied. Admin role required.');
     }
 
-    if (!date) {
-      throw new BadRequestException('Date parameter is required (format: YYYY-MM-DD)');
+    const effectiveStart = startDate || date;
+    const effectiveEnd = endDate || date;
+
+    if (!effectiveStart || !effectiveEnd) {
+      throw new BadRequestException(
+        'startDate and endDate are required (format: YYYY-MM-DD)',
+      );
     }
 
-    return await this.conversationsService.findArchivedByOperatorAndDate(operatorId, date);
+    const parseBool = (v?: string) =>
+      v === undefined ? undefined : v === 'true' || v === '1';
+    const incAssigned = parseBool(includeAssigned) ?? true;
+    const incClosedBy = parseBool(includeClosedBy) ?? true;
+
+    return await this.conversationsService.findArchivedByOperator(
+      operatorId,
+      effectiveStart,
+      effectiveEnd,
+      incAssigned,
+      incClosedBy,
+    );
   }
 
   @Get(':id')

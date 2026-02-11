@@ -183,24 +183,40 @@ export class ConversationsService {
   }
 
   /**
-   * Получить архивные (закрытые) чаты оператора за указанную дату
+   * Получить архивные (закрытые) чаты оператора за период (от-до)
    * Для аналитики админа
    */
-  async findArchivedByOperatorAndDate(
+  async findArchivedByOperator(
     operatorId: number,
-    date: string,
+    startDate: string,
+    endDate: string,
+    includeAssigned = true,
+    includeClosedBy = true,
   ): Promise<Conversation[]> {
+    // Если ни один флаг не выбран — возвращаем пусто
+    if (!includeAssigned && !includeClosedBy) {
+      return [];
+    }
+
+    const involvement: string[] = [];
+    if (includeAssigned) {
+      involvement.push('conversation.assigned_operator_id = :operatorId');
+    }
+    if (includeClosedBy) {
+      involvement.push('conversation.closed_by_operator_id = :operatorId');
+    }
+
     return await this.conversationsRepository
       .createQueryBuilder('conversation')
-      // Диалоги, где оператор был назначен ИЛИ где он закрыл диалог
-      .where(
-        '(conversation.assigned_operator_id = :operatorId OR conversation.closed_by_operator_id = :operatorId)',
-        { operatorId },
-      )
+      // Диалоги, где оператор был назначен и/или где он закрыл диалог
+      .where(`(${involvement.join(' OR ')})`, { operatorId })
       .andWhere('conversation.status = :status', { status: 'closed' })
       .andWhere('conversation.closed_at IS NOT NULL')
       // ВАЖНО: фильтруем по дате в БД, чтобы не ловить смещения по таймзоне/UTC
-      .andWhere('DATE(conversation.closed_at) = :date', { date })
+      .andWhere('DATE(conversation.closed_at) BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
       .leftJoinAndSelect('conversation.client', 'client')
       .leftJoinAndSelect('conversation.assigned_operator', 'assigned_operator')
       .leftJoinAndSelect('conversation.queue', 'queue')

@@ -54,7 +54,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
   // Аналитика (только для admin)
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [selectedOperatorId, setSelectedOperatorId] = useState<number | null>(null);
-  const [analyticsDate, setAnalyticsDate] = useState(new Date().toISOString().split('T')[0]);
+  const today = new Date().toISOString().split('T')[0];
+  const [analyticsPeriod, setAnalyticsPeriod] = useState({ startDate: today, endDate: today });
+  const [includeAssigned, setIncludeAssigned] = useState(true);
+  const [includeClosedBy, setIncludeClosedBy] = useState(true);
   const [archivedConversations, setArchivedConversations] = useState<any[]>([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<any | null>(null);
@@ -201,8 +204,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
   };
 
   const loadArchivedConversations = async () => {
-    if (!selectedOperatorId || !analyticsDate) {
-      alert('Выберите оператора и дату');
+    if (!selectedOperatorId || !analyticsPeriod.startDate || !analyticsPeriod.endDate) {
+      alert('Выберите оператора и период (от-до)');
       return;
     }
 
@@ -210,7 +213,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
     try {
       const response = await axios.get(
         `${apiUrl}/conversations/operator/${selectedOperatorId}/archived`,
-        { params: { date: analyticsDate } }
+        {
+          params: {
+            startDate: analyticsPeriod.startDate,
+            endDate: analyticsPeriod.endDate,
+            includeAssigned,
+            includeClosedBy,
+          },
+        }
       );
       setArchivedConversations(response.data);
     } catch (error: any) {
@@ -510,13 +520,47 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
               </select>
             </div>
             <div className="form-group">
-              <label>Дата:</label>
-              <input
-                type="date"
-                value={analyticsDate}
-                onChange={(e) => setAnalyticsDate(e.target.value)}
-                style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-              />
+              <label>Период:</label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  type="date"
+                  value={analyticsPeriod.startDate}
+                  onChange={(e) =>
+                    setAnalyticsPeriod({ ...analyticsPeriod, startDate: e.target.value })
+                  }
+                  style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+                <span>—</span>
+                <input
+                  type="date"
+                  value={analyticsPeriod.endDate}
+                  onChange={(e) =>
+                    setAnalyticsPeriod({ ...analyticsPeriod, endDate: e.target.value })
+                  }
+                  style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Участие оператора:</label>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <label style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={includeAssigned}
+                    onChange={(e) => setIncludeAssigned(e.target.checked)}
+                  />
+                  Вёл диалог
+                </label>
+                <label style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={includeClosedBy}
+                    onChange={(e) => setIncludeClosedBy(e.target.checked)}
+                  />
+                  Закрыл диалог
+                </label>
+              </div>
             </div>
             <button
               onClick={loadArchivedConversations}
@@ -536,6 +580,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
                     <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>ID</th>
                     <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Клиент</th>
                     <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Телефон</th>
+                    <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Участие</th>
                     <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Закрыт</th>
                     <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Действия</th>
                   </tr>
@@ -546,6 +591,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
                       <td style={{ padding: '8px', border: '1px solid #ddd' }}>{conv.conversation_id}</td>
                       <td style={{ padding: '8px', border: '1px solid #ddd' }}>{conv.client?.name || 'Клиент'}</td>
                       <td style={{ padding: '8px', border: '1px solid #ddd' }}>{conv.client?.phone || '-'}</td>
+                      <td style={{ padding: '8px', border: '1px solid #ddd' }}>
+                        {[
+                          conv.assigned_operator_id === selectedOperatorId ? 'Вёл' : null,
+                          conv.closed_by_operator_id === selectedOperatorId ? 'Закрыл' : null,
+                        ]
+                          .filter(Boolean)
+                          .join(', ') || '-'}
+                      </td>
                       <td style={{ padding: '8px', border: '1px solid #ddd' }}>
                         {conv.closed_at ? formatTime(conv.closed_at) : '-'}
                       </td>
@@ -567,7 +620,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
               </table>
             </div>
           ) : archivedConversations.length === 0 && !loadingArchived && selectedOperatorId ? (
-            <div className="empty-state">Нет архивных чатов за выбранную дату</div>
+            <div className="empty-state">Нет архивных чатов за выбранный период</div>
           ) : null}
 
           {selectedConversation && (
