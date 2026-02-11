@@ -32,6 +32,12 @@ import { RoutingModule } from './routing/routing.module';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: false, // Отключено, так как БД уже создана вручную
         logging: configService.get<string>('NODE_ENV') === 'development',
+        // ВАЖНО: фиксируем таймзону для записи/чтения дат, чтобы не было сдвига -5 часов
+        // (на сервере Asia/Dushanbe, +05:00)
+        timezone: '+05:00',
+        extra: {
+          timezone: '+05:00',
+        },
       }),
       inject: [ConfigService],
     }),
