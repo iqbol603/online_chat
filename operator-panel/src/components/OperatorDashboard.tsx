@@ -81,6 +81,10 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [searchResults, setSearchResults] = useState<Conversation[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
+  // Список онлайн-операторов (для admin / supervisor)
+  const [showOnlineOperatorsModal, setShowOnlineOperatorsModal] = useState(false);
+  const [onlineOperators, setOnlineOperators] = useState<Operator[]>([]);
+
   const playNotificationSound = () => {
     try {
       // Создаем звук уведомления программно
@@ -459,6 +463,21 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     }
   };
 
+  const handleShowOnlineOperators = async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/operators/online`);
+      setOnlineOperators(response.data || []);
+      setShowOnlineOperatorsModal(true);
+    } catch (error: any) {
+      console.error('Error loading online operators:', error);
+      alert(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          'Ошибка при загрузке списка онлайн-операторов',
+      );
+    }
+  };
+
   const loadQueuedConversations = async () => {
     try {
       const response = await axios.get(`${apiUrl}/conversations/status/queued`);
@@ -744,7 +763,13 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
           </div>
           {(isAdmin || isSupervisor) && (
             <div className="online-operators-counter">
-              Операторов онлайн: {onlineOperatorsCount}
+              <span>Операторов онлайн: {onlineOperatorsCount}</span>
+              <button
+                className="online-operators-button"
+                onClick={handleShowOnlineOperators}
+              >
+                Показать
+              </button>
             </div>
           )}
           <select
@@ -1154,6 +1179,51 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                 disabled={!selectedOperatorId}
               >
                 Переназначить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно со списком онлайн-операторов (для admin/supervisor) */}
+      {showOnlineOperatorsModal && (isAdmin || isSupervisor) && (
+        <div className="modal-overlay" onClick={() => setShowOnlineOperatorsModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Операторы онлайн</h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowOnlineOperatorsModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              {onlineOperators.length === 0 ? (
+                <p>Сейчас нет операторов онлайн.</p>
+              ) : (
+                <div className="operator-list">
+                  {onlineOperators.map((op) => (
+                    <div key={op.operator_id} className="operator-option">
+                      <span>
+                        {op.name} ({op.email}) —{' '}
+                        {op.role === 'admin'
+                          ? 'Админ'
+                          : op.role === 'supervisor'
+                          ? 'Супервизор'
+                          : 'Оператор'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                className="modal-confirm"
+                onClick={() => setShowOnlineOperatorsModal(false)}
+              >
+                Закрыть
               </button>
             </div>
           </div>
