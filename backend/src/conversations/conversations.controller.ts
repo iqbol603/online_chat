@@ -10,6 +10,7 @@ import {
   UseGuards,
   Request,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import { IsEnum, IsOptional, IsInt, IsString, Min, Max, MaxLength } from 'class-validator';
@@ -160,6 +161,25 @@ export class ConversationsController {
     }
 
     throw new ForbiddenException('Access denied');
+  }
+
+  @Get('operator/:operatorId/archived')
+  @UseGuards(JwtAuthGuard)
+  async findArchivedByOperator(
+    @Param('operatorId', ParseIntPipe) operatorId: number,
+    @Query('date') date: string,
+    @Request() req?: any,
+  ) {
+    const user = req?.user;
+    if (!user || user.role !== 'admin') {
+      throw new ForbiddenException('Access denied. Admin role required.');
+    }
+
+    if (!date) {
+      throw new BadRequestException('Date parameter is required (format: YYYY-MM-DD)');
+    }
+
+    return await this.conversationsService.findArchivedByOperatorAndDate(operatorId, date);
   }
 }
 

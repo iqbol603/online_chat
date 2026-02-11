@@ -182,6 +182,32 @@ export class ConversationsService {
     });
   }
 
+  /**
+   * Получить архивные (закрытые) чаты оператора за указанную дату
+   * Для аналитики админа
+   */
+  async findArchivedByOperatorAndDate(
+    operatorId: number,
+    date: string,
+  ): Promise<Conversation[]> {
+    const startDate = new Date(date);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(date);
+    endDate.setHours(23, 59, 59, 999);
+
+    return await this.conversationsRepository
+      .createQueryBuilder('conversation')
+      .where('conversation.assigned_operator_id = :operatorId', { operatorId })
+      .andWhere('conversation.status = :status', { status: 'closed' })
+      .andWhere('conversation.closed_at >= :startDate', { startDate })
+      .andWhere('conversation.closed_at <= :endDate', { endDate })
+      .leftJoinAndSelect('conversation.client', 'client')
+      .leftJoinAndSelect('conversation.assigned_operator', 'assigned_operator')
+      .leftJoinAndSelect('conversation.queue', 'queue')
+      .orderBy('conversation.closed_at', 'DESC')
+      .getMany();
+  }
+
   async addTag(conversationId: number, tag: string): Promise<Conversation> {
     const conversation = await this.findById(conversationId);
     const tags = conversation.tags || [];

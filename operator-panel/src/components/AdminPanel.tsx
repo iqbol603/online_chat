@@ -51,6 +51,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
   const canViewStatistics = operatorRole === 'admin' || operatorRole === 'supervisor';
   const statisticsLoadedRef = useRef(false);
 
+  // Аналитика (только для admin)
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [selectedOperatorId, setSelectedOperatorId] = useState<number | null>(null);
+  const [analyticsDate, setAnalyticsDate] = useState(new Date().toISOString().split('T')[0]);
+  const [archivedConversations, setArchivedConversations] = useState<any[]>([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<any | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<any[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
   useEffect(() => {
     if (operatorRole === 'admin') {
       loadOperators();
@@ -190,6 +200,50 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
     return <span className={`status-badge ${badge.class}`}>{badge.text}</span>;
   };
 
+  const loadArchivedConversations = async () => {
+    if (!selectedOperatorId || !analyticsDate) {
+      alert('Выберите оператора и дату');
+      return;
+    }
+
+    setLoadingArchived(true);
+    try {
+      const response = await axios.get(
+        `${apiUrl}/conversations/operator/${selectedOperatorId}/archived`,
+        { params: { date: analyticsDate } }
+      );
+      setArchivedConversations(response.data);
+    } catch (error: any) {
+      console.error('Error loading archived conversations:', error);
+      alert(error.response?.data?.message || 'Ошибка загрузки архивных чатов');
+    } finally {
+      setLoadingArchived(false);
+    }
+  };
+
+  const loadConversationMessages = async (conversationId: number) => {
+    setLoadingMessages(true);
+    try {
+      const response = await axios.get(`${apiUrl}/messages/conversation/${conversationId}`);
+      setConversationMessages(response.data);
+    } catch (error: any) {
+      console.error('Error loading messages:', error);
+      alert('Ошибка загрузки сообщений');
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  };
+
   const loadStatistics = async () => {
     if (!statisticsPeriod.startDate || !statisticsPeriod.endDate) {
       alert('Выберите период для статистики');
@@ -239,9 +293,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
             </button>
           )}
           {operatorRole === 'admin' && (
-            <button onClick={() => { setShowForm(true); resetForm(); setEditingOperator(null); }} className="btn-primary">
-              + Создать оператора
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  setShowAnalytics(!showAnalytics);
+                  if (!showAnalytics && archivedConversations.length === 0) {
+                    // Автоматически выбираем первого оператора если есть
+                    if (operators.length > 0 && !selectedOperatorId) {
+                      setSelectedOperatorId(operators[0].operator_id);
+                    }
+                  }
+                }}
+                className="btn-secondary"
+              >
+                {showAnalytics ? '📋 Скрыть аналитику' : '📋 Аналитика'}
+              </button>
+              <button onClick={() => { setShowForm(true); resetForm(); setEditingOperator(null); }} className="btn-primary">
+                + Создать оператора
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -417,6 +487,184 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {operatorRole === 'admin' && showAnalytics && (
+        <div className="analytics-section" style={{ marginTop: '30px', marginBottom: '30px' }}>
+          <h3>Аналитика: Архивные чаты оператора</h3>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', alignItems: 'center' }}>
+            <div className="form-group">
+              <label>Оператор:</label>
+              <select
+                value={selectedOperatorId || ''}
+                onChange={(e) => setSelectedOperatorId(Number(e.target.value))}
+                style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minWidth: '200px' }}
+              >
+                <option value="">Выберите оператора</option>
+                {operators.map((op) => (
+                  <option key={op.operator_id} value={op.operator_id}>
+                    {op.name} ({op.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Дата:</label>
+              <input
+                type="date"
+                value={analyticsDate}
+                onChange={(e) => setAnalyticsDate(e.target.value)}
+                style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+              />
+            </div>
+            <button
+              onClick={loadArchivedConversations}
+              className="btn-primary"
+              disabled={loadingArchived || !selectedOperatorId}
+              style={{ padding: '8px 16px' }}
+            >
+              {loadingArchived ? 'Загрузка...' : 'Показать'}
+            </button>
+          </div>
+
+          {archivedConversations.length > 0 ? (
+            <div className="archived-conversations" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#f5f5f5' }}>
+                  <tr>
+                    <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>ID</th>
+                    <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Клиент</th>
+                    <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Телефон</th>
+                    <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Закрыт</th>
+                    <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Действия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {archivedConversations.map((conv) => (
+                    <tr key={conv.conversation_id}>
+                      <td style={{ padding: '8px', border: '1px solid #ddd' }}>{conv.conversation_id}</td>
+                      <td style={{ padding: '8px', border: '1px solid #ddd' }}>{conv.client?.name || 'Клиент'}</td>
+                      <td style={{ padding: '8px', border: '1px solid #ddd' }}>{conv.client?.phone || '-'}</td>
+                      <td style={{ padding: '8px', border: '1px solid #ddd' }}>
+                        {conv.closed_at ? formatTime(conv.closed_at) : '-'}
+                      </td>
+                      <td style={{ padding: '8px', border: '1px solid #ddd' }}>
+                        <button
+                          onClick={() => {
+                            setSelectedConversation(conv);
+                            loadConversationMessages(conv.conversation_id);
+                          }}
+                          className="btn-secondary"
+                          style={{ padding: '4px 8px', fontSize: '12px' }}
+                        >
+                          Просмотр
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : archivedConversations.length === 0 && !loadingArchived && selectedOperatorId ? (
+            <div className="empty-state">Нет архивных чатов за выбранную дату</div>
+          ) : null}
+
+          {selectedConversation && (
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+              }}
+              onClick={() => {
+                setSelectedConversation(null);
+                setConversationMessages([]);
+              }}
+            >
+              <div
+                style={{
+                  background: 'white',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  maxWidth: '800px',
+                  maxHeight: '80vh',
+                  overflow: 'auto',
+                  width: '90%',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <h3>
+                    История диалога #{selectedConversation.conversation_id} - {selectedConversation.client?.name || 'Клиент'}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setSelectedConversation(null);
+                      setConversationMessages([]);
+                    }}
+                    style={{ padding: '8px 16px', background: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    ✕ Закрыть
+                  </button>
+                </div>
+
+                {loadingMessages ? (
+                  <div>Загрузка сообщений...</div>
+                ) : (
+                  <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                    {conversationMessages.map((msg) => (
+                      <div
+                        key={msg.message_id}
+                        style={{
+                          marginBottom: '12px',
+                          padding: '8px',
+                          background: msg.sender_type === 'operator' ? '#e3f2fd' : '#f5f5f5',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <strong>
+                            {msg.sender_type === 'operator'
+                              ? 'Оператор'
+                              : msg.sender_type === 'client'
+                              ? selectedConversation.client?.name || 'Клиент'
+                              : msg.sender_type === 'bot'
+                              ? 'Бот'
+                              : 'Система'}
+                          </strong>
+                          <span style={{ fontSize: '12px', color: '#666' }}>{formatTime(msg.created_at)}</span>
+                        </div>
+                        <div>{msg.text}</div>
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <div style={{ marginTop: '8px' }}>
+                            {msg.attachments.map((att: any, idx: number) => (
+                              <div key={idx} style={{ marginTop: '4px' }}>
+                                {att.url ? (
+                                  <a href={att.url} target="_blank" rel="noopener noreferrer">
+                                    📎 {att.filename || 'Вложение'}
+                                  </a>
+                                ) : (
+                                  <span>📎 {att.filename || 'Вложение'}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
