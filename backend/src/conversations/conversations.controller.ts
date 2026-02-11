@@ -70,8 +70,8 @@ export class ConversationsController {
     @Request() req?: any,
   ) {
     const user = req?.user;
-    if (!user || user.role !== 'admin') {
-      throw new ForbiddenException('Access denied. Admin role required.');
+    if (!user || (user.role !== 'admin' && user.role !== 'supervisor')) {
+      throw new ForbiddenException('Access denied. Admin or Supervisor role required.');
     }
 
     const effectiveStart = startDate || date;

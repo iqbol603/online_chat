@@ -65,7 +65,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   useEffect(() => {
-    if (operatorRole === 'admin') {
+    if (operatorRole === 'admin' || operatorRole === 'supervisor') {
       loadOperators();
     }
     // Устанавливаем период по умолчанию (текущий месяц)
@@ -302,7 +302,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
               {showStatistics ? '📊 Скрыть статистику' : '📊 Статистика'}
             </button>
           )}
-          {operatorRole === 'admin' && (
+          {(operatorRole === 'admin' || operatorRole === 'supervisor') && (
             <>
               <button
                 onClick={() => {
@@ -500,7 +500,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
         </div>
       )}
 
-      {operatorRole === 'admin' && showAnalytics && (
+      {(operatorRole === 'admin' || operatorRole === 'supervisor') && showAnalytics && (
         <div className="analytics-section" style={{ marginTop: '30px', marginBottom: '30px' }}>
           <h3>Аналитика: Архивные чаты оператора</h3>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', alignItems: 'center' }}>
