@@ -190,17 +190,13 @@ export class ConversationsService {
     operatorId: number,
     date: string,
   ): Promise<Conversation[]> {
-    const startDate = new Date(date);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
-
     return await this.conversationsRepository
       .createQueryBuilder('conversation')
       .where('conversation.assigned_operator_id = :operatorId', { operatorId })
       .andWhere('conversation.status = :status', { status: 'closed' })
-      .andWhere('conversation.closed_at >= :startDate', { startDate })
-      .andWhere('conversation.closed_at <= :endDate', { endDate })
+      .andWhere('conversation.closed_at IS NOT NULL')
+      // ВАЖНО: фильтруем по дате в БД, чтобы не ловить смещения по таймзоне/UTC
+      .andWhere('DATE(conversation.closed_at) = :date', { date })
       .leftJoinAndSelect('conversation.client', 'client')
       .leftJoinAndSelect('conversation.assigned_operator', 'assigned_operator')
       .leftJoinAndSelect('conversation.queue', 'queue')

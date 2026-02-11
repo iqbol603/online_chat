@@ -58,6 +58,25 @@ export class ConversationsController {
     return await this.conversationsService.create(dto);
   }
 
+  @Get('operator/:operatorId/archived')
+  @UseGuards(JwtAuthGuard)
+  async findArchivedByOperator(
+    @Param('operatorId', ParseIntPipe) operatorId: number,
+    @Query('date') date: string,
+    @Request() req?: any,
+  ) {
+    const user = req?.user;
+    if (!user || user.role !== 'admin') {
+      throw new ForbiddenException('Access denied. Admin role required.');
+    }
+
+    if (!date) {
+      throw new BadRequestException('Date parameter is required (format: YYYY-MM-DD)');
+    }
+
+    return await this.conversationsService.findArchivedByOperatorAndDate(operatorId, date);
+  }
+
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return await this.conversationsService.findById(id);
@@ -163,23 +182,5 @@ export class ConversationsController {
     throw new ForbiddenException('Access denied');
   }
 
-  @Get('operator/:operatorId/archived')
-  @UseGuards(JwtAuthGuard)
-  async findArchivedByOperator(
-    @Param('operatorId', ParseIntPipe) operatorId: number,
-    @Query('date') date: string,
-    @Request() req?: any,
-  ) {
-    const user = req?.user;
-    if (!user || user.role !== 'admin') {
-      throw new ForbiddenException('Access denied. Admin role required.');
-    }
-
-    if (!date) {
-      throw new BadRequestException('Date parameter is required (format: YYYY-MM-DD)');
-    }
-
-    return await this.conversationsService.findArchivedByOperatorAndDate(operatorId, date);
-  }
 }
 
