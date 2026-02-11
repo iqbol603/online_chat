@@ -201,6 +201,17 @@ export class ConversationsService {
     const involvement: string[] = [];
     if (includeAssigned) {
       involvement.push('conversation.assigned_operator_id = :operatorId');
+      // Если диалог был переназначен, assigned_operator_id может указывать на другого оператора.
+      // Поэтому считаем "вёл" также по факту сообщений оператора в диалоге.
+      involvement.push(
+        `EXISTS (
+          SELECT 1
+          FROM messages m
+          WHERE m.conversation_id = conversation.conversation_id
+            AND m.sender_type = 'operator'
+            AND m.sender_id = :operatorId
+        )`,
+      );
     }
     if (includeClosedBy) {
       involvement.push('conversation.closed_by_operator_id = :operatorId');
