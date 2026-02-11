@@ -539,14 +539,13 @@ const ChatWidget: React.FC = () => {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const locale = client?.language === 'en' ? 'en-US' : client?.language === 'tj' ? 'tg-TJ' : 'ru-RU';
-    // Используем часовой пояс Душанбе (+5)
+    // Сервер уже в Asia/Dushanbe, используем локальное время браузера
     try {
       return new Intl.DateTimeFormat(locale, {
         day: '2-digit',
         month: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
-        timeZone: 'Asia/Dushanbe',
       }).format(date);
     } catch {
       // Фолбэк, если вдруг Intl или таймзона недоступны
