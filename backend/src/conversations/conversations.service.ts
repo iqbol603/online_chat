@@ -183,6 +183,39 @@ export class ConversationsService {
   }
 
   /**
+   * Поиск всех обращений клиента по его номеру телефона.
+   * Используется в аналитике/поиске по телефону.
+   */
+  async findByClientPhone(phone: string): Promise<Conversation[]> {
+    // Нормализация телефона такая же, как в ClientsService
+    const normalizedPhone = this.normalizePhoneForSearch(phone);
+
+    return await this.conversationsRepository
+      .createQueryBuilder('conversation')
+      .leftJoinAndSelect('conversation.client', 'client')
+      .leftJoinAndSelect('conversation.assigned_operator', 'assigned_operator')
+      .leftJoinAndSelect('conversation.queue', 'queue')
+      .where('client.phone = :phone', { phone: normalizedPhone })
+      .orderBy('conversation.created_at', 'DESC')
+      .getMany();
+  }
+
+  // Локальная версия normalizePhone, чтобы избежать циклических зависимостей с ClientsService
+  private normalizePhoneForSearch(phone: string): string {
+    let cleaned = phone.replace(/[^\d+]/g, '');
+
+    if (cleaned.startsWith('992') && !cleaned.startsWith('+992')) {
+      cleaned = '+' + cleaned;
+    }
+
+    if (cleaned.match(/^9\d{8}$/)) {
+      cleaned = '+992' + cleaned;
+    }
+
+    return cleaned;
+  }
+
+  /**
    * Получить архивные (закрытые) чаты оператора за период (от-до)
    * Для аналитики админа
    */

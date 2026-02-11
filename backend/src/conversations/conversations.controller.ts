@@ -202,5 +202,17 @@ export class ConversationsController {
     throw new ForbiddenException('Access denied');
   }
 
+  /**
+   * Поиск всех обращений клиента по его номеру телефона.
+   * Доступен для operator/supervisor/admin.
+   */
+  @Get('search/by-phone')
+  @UseGuards(JwtAuthGuard)
+  async searchByPhone(@Query('phone') phone: string) {
+    if (!phone || !phone.trim()) {
+      throw new BadRequestException('phone query parameter is required');
+    }
+    return await this.conversationsService.findByClientPhone(phone);
+  }
 }
 
