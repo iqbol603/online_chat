@@ -192,7 +192,11 @@ export class ConversationsService {
   ): Promise<Conversation[]> {
     return await this.conversationsRepository
       .createQueryBuilder('conversation')
-      .where('conversation.assigned_operator_id = :operatorId', { operatorId })
+      // Диалоги, где оператор был назначен ИЛИ где он закрыл диалог
+      .where(
+        '(conversation.assigned_operator_id = :operatorId OR conversation.closed_by_operator_id = :operatorId)',
+        { operatorId },
+      )
       .andWhere('conversation.status = :status', { status: 'closed' })
       .andWhere('conversation.closed_at IS NOT NULL')
       // ВАЖНО: фильтруем по дате в БД, чтобы не ловить смещения по таймзоне/UTC
