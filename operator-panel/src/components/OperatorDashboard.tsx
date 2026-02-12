@@ -85,6 +85,35 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [showOnlineOperatorsModal, setShowOnlineOperatorsModal] = useState(false);
   const [onlineOperators, setOnlineOperators] = useState<Operator[]>([]);
 
+  // Шаблоны ответов
+  type TemplateLanguage = 'ru' | 'tj' | 'en';
+  const [templatesLanguage, setTemplatesLanguage] = useState<TemplateLanguage>('ru');
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const responseTemplates: Record<TemplateLanguage, string[]> = {
+    ru: [
+      'Здравствуйте! Чем могу помочь?',
+      'Сейчас уточню информацию и вернусь к вам в течение нескольких минут.',
+      'Спасибо за ожидание. Проверяю ваш запрос.',
+      'Если у вас будут дополнительные вопросы, пожалуйста, напишите сюда.',
+      'Для уточнения данных укажите, пожалуйста, номер телефона и на чьё имя оформлен договор.',
+    ],
+    tj: [
+      'Салом! Чӣ тавр ба шумо кӯмак расонам?',
+      'Ҳоло маълумотро месанҷам ва баъди чанд дақиқа ба шумо ҷавоб медиҳам.',
+      'Ташаккур барои интизор шудан. Дархости шуморо месанҷам.',
+      'Агар саволҳои иловагӣ доред, лутфан дар ин ҷо нависед.',
+      'Барои дақиқ кардани маълумот лутфан рақами телефон ва номи соҳиби шартномаро нависед.',
+    ],
+    en: [
+      'Hello! How can I help you?',
+      'Let me check this information and get back to you in a few minutes.',
+      'Thank you for waiting. I am checking your request.',
+      'If you have any additional questions, please write here.',
+      'To clarify details, please provide your phone number and contract holder name.',
+    ],
+  };
+
   const playNotificationSound = () => {
     try {
       // Создаем звук уведомления программно
@@ -1033,6 +1062,49 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
               </div>
 
               <div className="chat-input-area">
+                <div className="templates-bar">
+                  <div className="templates-language">
+                    <label>Шаблоны:</label>
+                    <select
+                      value={templatesLanguage}
+                      onChange={(e) =>
+                        setTemplatesLanguage(e.target.value as TemplateLanguage)
+                      }
+                    >
+                      <option value="ru">RU</option>
+                      <option value="tj">TJ</option>
+                      <option value="en">EN</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="templates-toggle"
+                      onClick={() => setShowTemplates(!showTemplates)}
+                    >
+                      {showTemplates ? 'Скрыть' : 'Показать'}
+                    </button>
+                  </div>
+                  {showTemplates && (
+                    <div className="templates-list">
+                      {responseTemplates[templatesLanguage].map((tpl, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className="template-item"
+                          onClick={() => {
+                            setInputText((prev) =>
+                              prev
+                                ? prev.trimEnd() + (prev.endsWith('.') ? ' ' : ' ') + tpl
+                                : tpl,
+                            );
+                          }}
+                        >
+                          {tpl}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <input
                   type="file"
                   ref={fileInputRef}
