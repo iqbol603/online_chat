@@ -201,7 +201,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       const hostname = window.location.hostname;
       // Локально backend на 3060, на сервере backend на https://wifi.babilon-t.tj:3063
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:3060';
+        return 'http://localhost:3000';
       }
       return 'wss://wifi.babilon-t.tj:3063';
     };
@@ -1062,49 +1062,6 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
               </div>
 
               <div className="chat-input-area">
-                <div className="templates-bar">
-                  <div className="templates-language">
-                    <label>Шаблоны:</label>
-                    <select
-                      value={templatesLanguage}
-                      onChange={(e) =>
-                        setTemplatesLanguage(e.target.value as TemplateLanguage)
-                      }
-                    >
-                      <option value="ru">RU</option>
-                      <option value="tj">TJ</option>
-                      <option value="en">EN</option>
-                    </select>
-                    <button
-                      type="button"
-                      className="templates-toggle"
-                      onClick={() => setShowTemplates(!showTemplates)}
-                    >
-                      {showTemplates ? 'Скрыть' : 'Показать'}
-                    </button>
-                  </div>
-                  {showTemplates && (
-                    <div className="templates-list">
-                      {responseTemplates[templatesLanguage].map((tpl, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          className="template-item"
-                          onClick={() => {
-                            setInputText((prev) =>
-                              prev
-                                ? prev.trimEnd() + (prev.endsWith('.') ? ' ' : ' ') + tpl
-                                : tpl,
-                            );
-                          }}
-                        >
-                          {tpl}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -1136,43 +1093,96 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                     </button>
                   </div>
                 )}
-                <input
-                  type="text"
-                  value={inputText}
-                  onChange={handleInputChange}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                      // Останавливаем typing при отправке
-                      if (socket && selectedConversation) {
-                        socket.emit('operator:typing:stop', {
-                          conversationId: selectedConversation.conversation_id,
-                        });
-                        if (typingTimeoutRef.current) {
-                          clearTimeout(typingTimeoutRef.current);
-                          typingTimeoutRef.current = null;
+                <div className="chat-input-main">
+                  <div className="chat-input-row">
+                    <input
+                      type="text"
+                      value={inputText}
+                      onChange={handleInputChange}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                          // Останавливаем typing при отправке
+                          if (socket && selectedConversation) {
+                            socket.emit('operator:typing:stop', {
+                              conversationId: selectedConversation.conversation_id,
+                            });
+                            if (typingTimeoutRef.current) {
+                              clearTimeout(typingTimeoutRef.current);
+                              typingTimeoutRef.current = null;
+                            }
+                          }
                         }
+                      }}
+                      placeholder={
+                        isAssignedToCurrent
+                          ? 'Введите сообщение...'
+                          : 'Нажмите «Подключиться к диалогу», чтобы ответить'
                       }
-                    }
-                  }}
-                  placeholder={
-                    isAssignedToCurrent
-                      ? 'Введите сообщение...'
-                      : 'Нажмите «Подключиться к диалогу», чтобы ответить'
-                  }
-                  className="message-input"
-                  disabled={!isAssignedToCurrent}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={
-                    !isAssignedToCurrent || uploadingFile || (!inputText.trim() && !selectedFile)
-                  }
-                  className="send-button"
-                >
-                  {uploadingFile ? 'Отправка...' : 'Отправить'}
-                </button>
+                      className="message-input"
+                      disabled={!isAssignedToCurrent}
+                    />
+                    <button
+                      type="button"
+                      className="templates-trigger"
+                      onClick={() => setShowTemplates((prev) => !prev)}
+                      disabled={!isAssignedToCurrent}
+                      title="Быстрые ответы"
+                    >
+                      ⚡
+                    </button>
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={
+                        !isAssignedToCurrent ||
+                        uploadingFile ||
+                        (!inputText.trim() && !selectedFile)
+                      }
+                      className="send-button"
+                    >
+                      {uploadingFile ? 'Отправка...' : 'Отправить'}
+                    </button>
+                  </div>
+                  {showTemplates && (
+                    <div className="templates-popover">
+                      <div className="templates-language">
+                        <label>Шаблоны:</label>
+                        <select
+                          value={templatesLanguage}
+                          onChange={(e) =>
+                            setTemplatesLanguage(e.target.value as TemplateLanguage)
+                          }
+                        >
+                          <option value="ru">RU</option>
+                          <option value="tj">TJ</option>
+                          <option value="en">EN</option>
+                        </select>
+                      </div>
+                      <div className="templates-list">
+                        {responseTemplates[templatesLanguage].map((tpl, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            className="template-item"
+                            onClick={() => {
+                              setInputText((prev) =>
+                                prev
+                                  ? prev.trimEnd() +
+                                    (prev.endsWith('.') || prev.endsWith('!') ? ' ' : ' ') +
+                                    tpl
+                                  : tpl,
+                              );
+                              setShowTemplates(false);
+                            }}
+                          >
+                            {tpl}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           ) : (
