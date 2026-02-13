@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import axios from 'axios';
 import AdminPanel from './AdminPanel';
+import OperatorsManagement from './OperatorsManagement';
 import './OperatorDashboard.css';
 
 interface Operator {
@@ -59,7 +60,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [status, setStatus] = useState<'online' | 'away' | 'offline'>('offline');
-  const [activeTab, setActiveTab] = useState<'chats' | 'admin'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'admin' | 'operators'>('chats');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isClientTyping, setIsClientTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -903,10 +904,20 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
           >
             {isAdmin ? '⚙️ Админ-панель' : '📊 Статистика'}
           </button>
+          {isAdmin && (
+            <button
+              className={`tab ${activeTab === 'operators' ? 'active' : ''}`}
+              onClick={() => setActiveTab('operators')}
+            >
+              👥 Управление операторами
+            </button>
+          )}
         </div>
       )}
 
-      {activeTab === 'admin' && (isAdmin || isSupervisor) ? (
+      {activeTab === 'operators' && isAdmin ? (
+        <OperatorsManagement apiUrl={apiUrl} />
+      ) : activeTab === 'admin' && (isAdmin || isSupervisor) ? (
         <AdminPanel apiUrl={apiUrl} operatorRole={operator.role as 'operator' | 'supervisor' | 'admin'} />
       ) : (
         <div className="dashboard-content">
