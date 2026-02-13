@@ -215,6 +215,8 @@
 
 .conversation-item.queued {
   border-left: 4px solid #ff9800;
+  background: #fff8e1;
+  border-color: #ff9800;
 }
 
 .conversation-item.has-unread {
@@ -974,6 +976,11 @@
 .dark-mode .conversation-item.has-unread {
   background: #1e3a5f;
   border-color: #2196f3;
+}
+
+.dark-mode .conversation-item.queued {
+  background: #3e2723;
+  border-color: #ff9800;
 }
 
 .dark-mode .conversation-header strong {
