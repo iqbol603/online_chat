@@ -410,6 +410,21 @@
   background: #d32f2f;
 }
 
+.block-client-button {
+  padding: 8px 16px;
+  background: #ff9800;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.block-client-button:hover {
+  background: #f57c00;
+}
+
 .messages-container {
   flex: 1;
   overflow-y: auto;

@@ -1,9 +1,10 @@
-import { Controller, Post, Body, Get, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, ParseIntPipe, ForbiddenException } from '@nestjs/common';
 import { IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
 import { ClientsService } from '../clients/clients.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { MessagesService } from '../messages/messages.service';
 import { BotService } from '../bot/bot.service';
+import { BlockedClientsService } from '../blocked-clients/blocked-clients.service';
 
 class StartChatDto {
   @IsString()
@@ -42,10 +43,17 @@ export class ChatController {
     private conversationsService: ConversationsService,
     private messagesService: MessagesService,
     private botService: BotService,
+    private blockedClientsService: BlockedClientsService,
   ) {}
 
   @Post('start')
   async startChat(@Body() dto: StartChatDto) {
+    // Проверяем, не заблокирован ли клиент
+    const isBlocked = await this.blockedClientsService.isBlocked(dto.phone);
+    if (isBlocked) {
+      throw new ForbiddenException('Access denied. Your phone number is blocked.');
+    }
+
     // Валидируем и нормализуем язык
     const validLanguages = ['ru', 'tj', 'en'] as const;
     const normalizedLanguage = dto.language && validLanguages.includes(dto.language as any)

@@ -7,6 +7,7 @@ import { MessagesModule } from '../messages/messages.module';
 import { BotModule } from '../bot/bot.module';
 import { RoutingModule } from '../routing/routing.module';
 import { OperatorsModule } from '../operators/operators.module';
+import { BlockedClientsModule } from '../blocked-clients/blocked-clients.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { OperatorsModule } from '../operators/operators.module';
     BotModule,
     RoutingModule,
     OperatorsModule,
+    BlockedClientsModule,
   ],
   controllers: [ChatController],
   providers: [ChatGateway],

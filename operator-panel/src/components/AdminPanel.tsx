@@ -64,6 +64,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
   const [conversationMessages, setConversationMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
+  // Чёрный список
+  const [showBlacklist, setShowBlacklist] = useState(false);
+  const [blockedClients, setBlockedClients] = useState<any[]>([]);
+  const [loadingBlacklist, setLoadingBlacklist] = useState(false);
+  const [blockPhone, setBlockPhone] = useState('');
+  const [blockReason, setBlockReason] = useState('');
+  const [blockClientName, setBlockClientName] = useState('');
+
+  // Быстрая статистика обращений
+  const [quickStats, setQuickStats] = useState<{ total: number } | null>(null);
+  const [loadingQuickStats, setLoadingQuickStats] = useState(false);
+
   useEffect(() => {
     if (operatorRole === 'admin' || operatorRole === 'supervisor') {
       loadOperators();
@@ -283,6 +295,91 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
     }
   };
 
+  // Чёрный список
+  const loadBlacklist = async () => {
+    setLoadingBlacklist(true);
+    try {
+      const token = localStorage.getItem('operator_token');
+      const response = await axios.get(`${apiUrl}/blocked-clients`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setBlockedClients(response.data);
+    } catch (error: any) {
+      console.error('Error loading blacklist:', error);
+      alert(error.response?.data?.message || 'Ошибка загрузки чёрного списка');
+    } finally {
+      setLoadingBlacklist(false);
+    }
+  };
+
+  const handleBlockClient = async () => {
+    if (!blockPhone.trim()) {
+      alert('Введите номер телефона');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('operator_token');
+      await axios.post(
+        `${apiUrl}/blocked-clients/block`,
+        {
+          phone: blockPhone,
+          reason: blockReason || 'Заблокирован оператором',
+          clientName: blockClientName,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      alert('Клиент заблокирован');
+      setBlockPhone('');
+      setBlockReason('');
+      setBlockClientName('');
+      loadBlacklist();
+    } catch (error: any) {
+      console.error('Error blocking client:', error);
+      alert(error.response?.data?.message || 'Ошибка блокировки клиента');
+    }
+  };
+
+  const handleUnblockClient = async (phone: string) => {
+    if (!confirm('Разблокировать этого клиента?')) return;
+    try {
+      const token = localStorage.getItem('operator_token');
+      await axios.delete(`${apiUrl}/blocked-clients/unblock/${encodeURIComponent(phone)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      alert('Клиент разблокирован');
+      loadBlacklist();
+    } catch (error: any) {
+      console.error('Error unblocking client:', error);
+      alert(error.response?.data?.message || 'Ошибка разблокировки клиента');
+    }
+  };
+
+  // Быстрая статистика обращений
+  const loadQuickStats = async () => {
+    if (!analyticsPeriod.startDate || !analyticsPeriod.endDate) {
+      alert('Выберите период');
+      return;
+    }
+    setLoadingQuickStats(true);
+    try {
+      const response = await axios.get(`${apiUrl}/operators/statistics`, {
+        params: {
+          startDate: analyticsPeriod.startDate,
+          endDate: analyticsPeriod.endDate,
+        },
+      });
+      const total = response.data.statistics?.reduce((sum: number, op: any) => sum + (op.total_closed || 0), 0) || 0;
+      setQuickStats({ total });
+    } catch (error: any) {
+      console.error('Error loading quick stats:', error);
+      alert('Ошибка загрузки статистики');
+    } finally {
+      setLoadingQuickStats(false);
+    }
+  };
+
 
   return (
     <div className="admin-panel">
@@ -290,17 +387,40 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
         <h2>{operatorRole === 'admin' ? 'Управление операторами' : 'Статистика операторов'}</h2>
         <div style={{ display: 'flex', gap: '12px' }}>
           {canViewStatistics && (
-            <button
-              onClick={() => {
-                setShowStatistics(!showStatistics);
-                if (!showStatistics && statistics.length === 0) {
-                  loadStatistics();
-                }
-              }}
-              className="btn-secondary"
-            >
-              {showStatistics ? '📊 Скрыть статистику' : '📊 Статистика'}
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  setShowStatistics(!showStatistics);
+                  if (!showStatistics && statistics.length === 0) {
+                    loadStatistics();
+                  }
+                }}
+                className="btn-secondary"
+              >
+                {showStatistics ? '📊 Скрыть статистику' : '📊 Статистика'}
+              </button>
+              <button
+                onClick={() => {
+                  loadQuickStats();
+                }}
+                className="btn-secondary"
+                disabled={loadingQuickStats || !analyticsPeriod.startDate || !analyticsPeriod.endDate}
+                title="Быстрый просмотр количества обращений за выбранный период"
+              >
+                {loadingQuickStats ? '⏳' : quickStats ? `📈 Обращений: ${quickStats.total}` : '📈 Быстрая статистика'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowBlacklist(!showBlacklist);
+                  if (!showBlacklist && blockedClients.length === 0) {
+                    loadBlacklist();
+                  }
+                }}
+                className="btn-secondary"
+              >
+                {showBlacklist ? '🚫 Скрыть чёрный список' : '🚫 Чёрный список'}
+              </button>
+            </>
           )}
           {(operatorRole === 'admin' || operatorRole === 'supervisor') && (
             <button
@@ -775,6 +895,100 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
           {operators.length === 0 && (
             <div className="empty-state">Нет операторов</div>
           )}
+        </div>
+      )}
+
+      {/* Чёрный список */}
+      {showBlacklist && (operatorRole === 'admin' || operatorRole === 'supervisor') && (
+        <div className="blacklist-section" style={{ marginTop: '30px' }}>
+          <h3>🚫 Чёрный список (заблокированные клиенты)</h3>
+          
+          {/* Форма блокировки */}
+          <div style={{ marginBottom: '20px', padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
+            <h4>Заблокировать клиента</h4>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div style={{ flex: '1 1 200px' }}>
+                <label>Номер телефона (+992...)</label>
+                <input
+                  type="text"
+                  value={blockPhone}
+                  onChange={(e) => setBlockPhone(e.target.value)}
+                  placeholder="+992987654321"
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+              </div>
+              <div style={{ flex: '1 1 200px' }}>
+                <label>Имя клиента (опционально)</label>
+                <input
+                  type="text"
+                  value={blockClientName}
+                  onChange={(e) => setBlockClientName(e.target.value)}
+                  placeholder="Имя клиента"
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+              </div>
+              <div style={{ flex: '2 1 300px' }}>
+                <label>Причина блокировки</label>
+                <input
+                  type="text"
+                  value={blockReason}
+                  onChange={(e) => setBlockReason(e.target.value)}
+                  placeholder="Причина блокировки"
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+              </div>
+              <button onClick={handleBlockClient} className="btn-primary" style={{ padding: '8px 16px' }}>
+                Заблокировать
+              </button>
+            </div>
+          </div>
+
+          {/* Список заблокированных */}
+          <div>
+            <button onClick={loadBlacklist} className="btn-secondary" disabled={loadingBlacklist} style={{ marginBottom: '12px' }}>
+              {loadingBlacklist ? 'Загрузка...' : '🔄 Обновить список'}
+            </button>
+            {blockedClients.length === 0 ? (
+              <div className="empty-state">Нет заблокированных клиентов</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f5f5f5' }}>
+                    <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Телефон</th>
+                    <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Имя</th>
+                    <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Причина</th>
+                    <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Заблокирован</th>
+                    <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Кем</th>
+                    <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Действия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {blockedClients.map((blocked) => (
+                    <tr key={blocked.blocked_id}>
+                      <td style={{ padding: '12px', border: '1px solid #ddd' }}>{blocked.phone}</td>
+                      <td style={{ padding: '12px', border: '1px solid #ddd' }}>{blocked.name || '-'}</td>
+                      <td style={{ padding: '12px', border: '1px solid #ddd' }}>{blocked.reason || '-'}</td>
+                      <td style={{ padding: '12px', border: '1px solid #ddd' }}>
+                        {new Date(blocked.blocked_at).toLocaleDateString('ru-RU')}
+                      </td>
+                      <td style={{ padding: '12px', border: '1px solid #ddd' }}>
+                        {blocked.blocked_by_operator?.name || '-'}
+                      </td>
+                      <td style={{ padding: '12px', border: '1px solid #ddd' }}>
+                        <button
+                          onClick={() => handleUnblockClient(blocked.phone)}
+                          className="btn-secondary"
+                          style={{ padding: '4px 8px', fontSize: '12px' }}
+                        >
+                          Разблокировать
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { BotModule } from './bot/bot.module';
 import { ChatModule } from './chat/chat.module';
 import { RoutingModule } from './routing/routing.module';
+import { BlockedClientsModule } from './blocked-clients/blocked-clients.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { RoutingModule } from './routing/routing.module';
     BotModule,
     RoutingModule,
     ChatModule,
+    BlockedClientsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

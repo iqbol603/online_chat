@@ -84,7 +84,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const port = process.env.PORT || 30600;
+  const port = process.env.PORT || 3060;
   const host = '0.0.0.0'; // Слушаем на всех интерфейсах
   
   await app.listen(port, host);

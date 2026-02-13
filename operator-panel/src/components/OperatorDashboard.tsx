@@ -766,6 +766,32 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     }
   };
 
+  const handleBlockClient = async (phone: string, clientName: string) => {
+    const reason = prompt('Введите причину блокировки (опционально):');
+    if (reason === null) return; // Пользователь отменил
+    
+    if (!confirm(`Заблокировать клиента ${clientName} (${phone})?`)) return;
+    
+    try {
+      const token = localStorage.getItem('operator_token');
+      await axios.post(
+        `${apiUrl}/blocked-clients/block`,
+        {
+          phone,
+          reason: reason || 'Заблокирован оператором',
+          clientName,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      alert('Клиент заблокирован');
+    } catch (error: any) {
+      console.error('Error blocking client:', error);
+      alert(error.response?.data?.message || 'Ошибка блокировки клиента');
+    }
+  };
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     // Сервер уже в Asia/Dushanbe, используем локальное время браузера
@@ -988,6 +1014,15 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                       title="Переназначить диалог"
                     >
                       🔄 Переназначить
+                    </button>
+                  )}
+                  {selectedConversation && selectedConversation.client && (isAdmin || isSupervisor) && (
+                    <button
+                      onClick={() => handleBlockClient(selectedConversation.client!.phone, selectedConversation.client!.name || 'Клиент')}
+                      className="block-client-button"
+                      title="Заблокировать клиента"
+                    >
+                      🚫 Заблокировать
                     </button>
                   )}
                   <button onClick={handleCloseConversation} className="close-chat-button">
