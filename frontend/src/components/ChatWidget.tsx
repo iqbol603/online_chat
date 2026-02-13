@@ -26,11 +26,11 @@ const getApiUrl = () => {
     // Локально: backend на 3060, на сервере: https://wifi.babilon-t.tj:3063
     if (isLocal) {
       // Если фронтенд на другом порту (например, 3001), используем localhost:3060
-      return 'http://localhost:3060/api';
+      return 'http://localhost:3000/api';
     }
     return 'https://wifi.babilon-t.tj:3063/api';
   }
-  return 'http://localhost:3060/api';
+  return 'http://localhost:3000/api';
 };
 
 const getWsUrl = () => {
@@ -53,12 +53,12 @@ const getWsUrl = () => {
        parseInt(hostname.split('.')[1] || '0') <= 31);
     
     if (isLocal) {
-      return 'http://localhost:3060';
+      return 'http://localhost:3000';
     }
     // WebSocket для https-домена
     return 'wss://wifi.babilon-t.tj:3063';
   }
-  return 'http://localhost:3060';
+  return 'http://localhost:3000';
 };
 
 const API_URL = getApiUrl();
@@ -118,6 +118,7 @@ const ChatWidget: React.FC = () => {
   const [ratingComment, setRatingComment] = useState('');
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const conversationClosedRef = useRef(false);
 
   useEffect(() => {
@@ -707,7 +708,7 @@ const ChatWidget: React.FC = () => {
                                   src={imageUrl}
                                   alt={attachment.filename || 'Изображение'}
                                   onClick={() => {
-                                    window.open(imageUrl, '_blank');
+                                    setSelectedImage(imageUrl);
                                   }}
                                   style={{ cursor: 'pointer', maxWidth: '100%', height: 'auto', borderRadius: '8px' }}
                                 />
@@ -854,6 +855,22 @@ const ChatWidget: React.FC = () => {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Модальное окно для просмотра фото */}
+      {selectedImage && (
+        <div className="image-modal-overlay" onClick={() => setSelectedImage(null)}>
+          <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="image-modal-close"
+              onClick={() => setSelectedImage(null)}
+              title={client?.language === 'en' ? 'Close' : client?.language === 'tj' ? 'Пӯшидан' : 'Закрыть'}
+            >
+              ✕
+            </button>
+            <img src={selectedImage} alt={client?.language === 'en' ? 'View image' : client?.language === 'tj' ? 'Намоиши тасвир' : 'Просмотр изображения'} className="image-modal-image" />
+          </div>
         </div>
       )}
     </div>

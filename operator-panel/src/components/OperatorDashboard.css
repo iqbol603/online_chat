@@ -495,12 +495,25 @@
   max-width: 400px;
 }
 
+/* Фото от клиента - слева */
+.message-client .message-image {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Фото от оператора - справа */
+.message-operator .message-image {
+  margin-left: auto;
+  margin-right: 0;
+}
+
 .message-image img {
   max-width: 100%;
   border-radius: 8px;
   cursor: pointer;
   transition: transform 0.2s;
   border: 1px solid #e0e0e0;
+  display: block;
 }
 
 .message-image img:hover {
@@ -1198,4 +1211,71 @@
   background: #1a1a1a;
   border-color: #404040;
   color: #e0e0e0;
+}
+
+/* Модальное окно для просмотра фото */
+.image-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  cursor: pointer;
+}
+
+.image-modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.image-modal-close {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  transition: all 0.2s;
+  z-index: 10001;
+}
+
+.image-modal-close:hover {
+  background: white;
+  transform: scale(1.1);
+}
+
+.image-modal-image {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Тёмная тема для модального окна фото */
+.dark-mode .image-modal-close {
+  background: rgba(45, 45, 45, 0.9);
+  color: #e0e0e0;
+}
+
+.dark-mode .image-modal-close:hover {
+  background: #2d2d2d;
 }

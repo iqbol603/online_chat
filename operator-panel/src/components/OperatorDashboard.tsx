@@ -101,6 +101,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     return saved ? JSON.parse(saved) : false;
   });
 
+  // Модальное окно для просмотра фото
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   const responseTemplates: Record<TemplateLanguage, string[]> = {
     ru: [
       'Здравствуйте! Чем могу помочь?',
@@ -1060,8 +1063,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                                   src={imageUrl}
                                   alt={attachment.filename || 'Изображение'}
                                   onClick={() => {
-                                    window.open(imageUrl, '_blank');
+                                    setSelectedImage(imageUrl);
                                   }}
+                                  style={{ cursor: 'pointer' }}
                                 />
                                 {attachment.filename && (
                                   <span className="image-filename">{attachment.filename}</span>
@@ -1355,6 +1359,22 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                 Закрыть
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для просмотра фото */}
+      {selectedImage && (
+        <div className="image-modal-overlay" onClick={() => setSelectedImage(null)}>
+          <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="image-modal-close"
+              onClick={() => setSelectedImage(null)}
+              title="Закрыть"
+            >
+              ✕
+            </button>
+            <img src={selectedImage} alt="Просмотр изображения" className="image-modal-image" />
           </div>
         </div>
       )}

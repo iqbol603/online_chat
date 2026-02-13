@@ -57,7 +57,7 @@ export class MessagesController {
         },
       }),
       limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB
+        fileSize: 20 * 1024 * 1024, // 20MB
       },
       fileFilter: (req, file, cb) => {
         // Разрешаем изображения и некоторые типы файлов
