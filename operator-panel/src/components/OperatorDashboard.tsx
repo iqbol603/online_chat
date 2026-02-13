@@ -1165,8 +1165,8 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                   className="file-input"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
-                    if (file && file.size > 10 * 1024 * 1024) {
-                      alert('Файл слишком большой. Максимальный размер 10MB');
+                    if (file && file.size > 20 * 1024 * 1024) {
+                      alert('Файл слишком большой. Максимальный размер 20MB');
                       e.target.value = '';
                       return;
                     }
