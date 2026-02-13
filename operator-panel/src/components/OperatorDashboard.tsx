@@ -347,8 +347,13 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       const isCurrentConversation =
         selectedConversationRef.current?.conversation_id === message.conversation_id;
       
-      // Если это сообщение от клиента и диалог не открыт - показываем уведомление
-      if (message.sender_type === 'client' && !isCurrentConversation) {
+      // Проверяем, видна ли вкладка браузера
+      const isTabVisible = !document.hidden && document.visibilityState === 'visible';
+      
+      // Если это сообщение от клиента - показываем уведомление в двух случаях:
+      // 1. Диалог не открыт (независимо от видимости вкладки)
+      // 2. Диалог открыт, но вкладка не видна (оператор на другой вкладке)
+      if (message.sender_type === 'client' && (!isCurrentConversation || !isTabVisible)) {
         // Находим информацию о клиенте из текущих состояний (через refs)
         const conversation =
           activeConversationsRef.current.find((c) => c.conversation_id === message.conversation_id) ||
@@ -358,11 +363,13 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
         // Показываем уведомление
         showNotification(clientName, message.text);
         
-        // Увеличиваем счетчик непрочитанных
-        setUnreadCounts((prev) => ({
-          ...prev,
-          [message.conversation_id]: (prev[message.conversation_id] || 0) + 1,
-        }));
+        // Увеличиваем счетчик непрочитанных только если диалог не открыт
+        if (!isCurrentConversation) {
+          setUnreadCounts((prev) => ({
+            ...prev,
+            [message.conversation_id]: (prev[message.conversation_id] || 0) + 1,
+          }));
+        }
       }
       
       // Если диалог открыт - добавляем сообщение в список
