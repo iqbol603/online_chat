@@ -498,9 +498,13 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     }
 
     try {
+      const token = localStorage.getItem('operator_token');
       const response = await axios.get(
         `${apiUrl}/conversations/search/by-phone`,
-        { params: { phone: searchPhone } },
+        {
+          params: { phone: searchPhone },
+          headers: { Authorization: `Bearer ${token}` },
+        },
       );
       setSearchResults(response.data || []);
       setShowSearchResults(true);
