@@ -28,6 +28,11 @@ interface Conversation {
   client_id: number;
   status: string;
   assigned_operator_id?: number;
+  assigned_operator?: {
+    operator_id: number;
+    name: string;
+    email: string;
+  };
   client?: {
     name: string;
     phone: string;
@@ -911,7 +916,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                             <span className="unread-badge">{unreadCounts[conv.conversation_id]}</span>
                           )}
                           {!isQueued && isSupervisor && conv.assigned_operator_id && conv.assigned_operator_id !== operator.operator_id && (
-                            <span className="other-operator-badge">Другой оператор</span>
+                            <span className="other-operator-badge">
+                              {conv.assigned_operator?.name || 'Оператор'}
+                            </span>
                           )}
                         </div>
                       </div>
