@@ -901,7 +901,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
             className={`tab ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => setActiveTab('admin')}
           >
-            {isAdmin ? '⚙️ Управление операторами' : '📊 Статистика'}
+            {isAdmin ? '⚙️ Админ-панель' : '📊 Статистика'}
           </button>
         </div>
       )}

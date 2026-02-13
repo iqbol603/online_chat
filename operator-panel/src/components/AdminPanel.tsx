@@ -73,8 +73,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
   const [blockClientName, setBlockClientName] = useState('');
 
   // Быстрая статистика обращений
-  const [quickStats, setQuickStats] = useState<{ total: number } | null>(null);
+  const [quickStats, setQuickStats] = useState<{ total: number; conversations: any[] } | null>(null);
   const [loadingQuickStats, setLoadingQuickStats] = useState(false);
+  const [showQuickStats, setShowQuickStats] = useState(false);
+  const [quickStatsPeriod, setQuickStatsPeriod] = useState({
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+  });
 
   useEffect(() => {
     if (operatorRole === 'admin' || operatorRole === 'supervisor') {
@@ -358,23 +363,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
 
   // Быстрая статистика обращений
   const loadQuickStats = async () => {
-    if (!analyticsPeriod.startDate || !analyticsPeriod.endDate) {
+    if (!quickStatsPeriod.startDate || !quickStatsPeriod.endDate) {
       alert('Выберите период');
       return;
     }
     setLoadingQuickStats(true);
     try {
-      const response = await axios.get(`${apiUrl}/operators/statistics`, {
+      const token = localStorage.getItem('operator_token');
+      const response = await axios.get(`${apiUrl}/conversations/archived/by-period`, {
         params: {
-          startDate: analyticsPeriod.startDate,
-          endDate: analyticsPeriod.endDate,
+          startDate: quickStatsPeriod.startDate,
+          endDate: quickStatsPeriod.endDate,
         },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      const total = response.data.statistics?.reduce((sum: number, op: any) => sum + (op.total_closed || 0), 0) || 0;
-      setQuickStats({ total });
+      const conversations = response.data || [];
+      setQuickStats({ total: conversations.length, conversations });
+      setShowQuickStats(true);
     } catch (error: any) {
       console.error('Error loading quick stats:', error);
-      alert('Ошибка загрузки статистики');
+      alert(error.response?.data?.message || 'Ошибка загрузки статистики');
     } finally {
       setLoadingQuickStats(false);
     }
@@ -384,7 +392,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h2>{operatorRole === 'admin' ? 'Управление операторами' : 'Статистика операторов'}</h2>
+        <h2>{operatorRole === 'admin' ? 'Админ-панель' : 'Панель супервизора'}</h2>
         <div style={{ display: 'flex', gap: '12px' }}>
           {canViewStatistics && (
             <>
@@ -401,13 +409,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
               </button>
               <button
                 onClick={() => {
-                  loadQuickStats();
+                  setShowQuickStats(!showQuickStats);
+                  if (!showQuickStats && !quickStats) {
+                    loadQuickStats();
+                  }
                 }}
                 className="btn-secondary"
-                disabled={loadingQuickStats || !analyticsPeriod.startDate || !analyticsPeriod.endDate}
-                title="Быстрый просмотр количества обращений за выбранный период"
+                title="Быстрый просмотр количества обращений за период"
               >
-                {loadingQuickStats ? '⏳' : quickStats ? `📈 Обращений: ${quickStats.total}` : '📈 Быстрая статистика'}
+                {showQuickStats ? '📈 Скрыть статистику' : quickStats ? `📈 Обращений: ${quickStats.total}` : '📈 Быстрая статистика'}
               </button>
               <button
                 onClick={() => {
@@ -894,6 +904,94 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
           </table>
           {operators.length === 0 && (
             <div className="empty-state">Нет операторов</div>
+          )}
+        </div>
+      )}
+
+      {/* Быстрая статистика */}
+      {showQuickStats && (operatorRole === 'admin' || operatorRole === 'supervisor') && (
+        <div className="quick-stats-section" style={{ marginTop: '30px' }}>
+          <h3>📈 Быстрая статистика обращений</h3>
+          
+          {/* Выбор периода */}
+          <div style={{ marginBottom: '20px', padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div>
+                <label>Период (от):</label>
+                <input
+                  type="date"
+                  value={quickStatsPeriod.startDate}
+                  onChange={(e) => setQuickStatsPeriod({ ...quickStatsPeriod, startDate: e.target.value })}
+                  style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', marginLeft: '8px' }}
+                />
+              </div>
+              <div>
+                <label>Период (до):</label>
+                <input
+                  type="date"
+                  value={quickStatsPeriod.endDate}
+                  onChange={(e) => setQuickStatsPeriod({ ...quickStatsPeriod, endDate: e.target.value })}
+                  style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', marginLeft: '8px' }}
+                />
+              </div>
+              <button
+                onClick={loadQuickStats}
+                className="btn-primary"
+                disabled={loadingQuickStats}
+                style={{ padding: '8px 16px' }}
+              >
+                {loadingQuickStats ? 'Загрузка...' : 'Показать'}
+              </button>
+            </div>
+          </div>
+
+          {/* Результаты */}
+          {quickStats && (
+            <div>
+              <div style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 'bold', color: '#667eea' }}>
+                Всего обращений: {quickStats.total}
+              </div>
+              {quickStats.conversations.length === 0 ? (
+                <div className="empty-state">Нет обращений за выбранный период</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#f5f5f5' }}>
+                      <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>ID</th>
+                      <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Клиент</th>
+                      <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Телефон</th>
+                      <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Оператор</th>
+                      <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Закрыт</th>
+                      <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>Кем закрыт</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quickStats.conversations.map((conv) => (
+                      <tr key={conv.conversation_id}>
+                        <td style={{ padding: '12px', border: '1px solid #ddd' }}>{conv.conversation_id}</td>
+                        <td style={{ padding: '12px', border: '1px solid #ddd' }}>{conv.client?.name || '-'}</td>
+                        <td style={{ padding: '12px', border: '1px solid #ddd' }}>{conv.client?.phone || '-'}</td>
+                        <td style={{ padding: '12px', border: '1px solid #ddd' }}>
+                          {conv.assigned_operator?.name || '-'}
+                        </td>
+                        <td style={{ padding: '12px', border: '1px solid #ddd' }}>
+                          {conv.closed_at ? new Date(conv.closed_at).toLocaleDateString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          }) : '-'}
+                        </td>
+                        <td style={{ padding: '12px', border: '1px solid #ddd' }}>
+                          {conv.closed_by_type === 'client' ? 'Клиент' : conv.closed_by_type === 'operator' ? 'Оператор' : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           )}
         </div>
       )}
