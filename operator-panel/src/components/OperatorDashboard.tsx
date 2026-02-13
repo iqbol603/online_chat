@@ -90,6 +90,12 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [templatesLanguage, setTemplatesLanguage] = useState<TemplateLanguage>('ru');
   const [showTemplates, setShowTemplates] = useState(false);
 
+  // Тёмная тема
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('operatorDarkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
+
   const responseTemplates: Record<TemplateLanguage, string[]> = {
     ru: [
       'Здравствуйте! Чем могу помочь?',
@@ -767,8 +773,27 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     return `${minutes} мин`;
   };
 
+  // Переключение темы
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    localStorage.setItem('operatorDarkMode', JSON.stringify(newMode));
+  };
+
+  // Объединённый список всех чатов (очередь + активные)
+  const allConversations = [
+    ...queuedConversations.map(conv => ({ ...conv, listStatus: 'queued' as const })),
+    ...activeConversations.map(conv => ({ ...conv, listStatus: 'active' as const })),
+  ].sort((a, b) => {
+    // Сначала очередь, потом активные
+    if (a.listStatus === 'queued' && b.listStatus === 'active') return -1;
+    if (a.listStatus === 'active' && b.listStatus === 'queued') return 1;
+    // Внутри каждой группы сортируем по времени создания (новые сверху)
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
   return (
-    <div className="dashboard">
+    <div className={`dashboard ${darkMode ? 'dark-mode' : ''}`}>
       <header className="dashboard-header">
         <div className="header-left">
           <h1>Операторский кабинет</h1>
@@ -801,6 +826,13 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
               </button>
             </div>
           )}
+          <button
+            onClick={toggleDarkMode}
+            className="theme-toggle-button"
+            title={darkMode ? 'Светлая тема' : 'Тёмная тема'}
+          >
+            {darkMode ? '☀️' : '🌙'}
+          </button>
           <select
             value={status}
             onChange={(e) => updateOperatorStatus(e.target.value as 'online' | 'away' | 'offline')}
@@ -839,62 +871,63 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
         <div className="dashboard-content">
         <div className="conversations-sidebar">
           <div className="sidebar-section">
-            <h2>Очередь ({queuedConversations.length})</h2>
+            <h2>
+              Все чаты ({allConversations.length})
+              <span className="conversation-counts">
+                <span className="count-queued">Очередь: {queuedConversations.length}</span>
+                <span className="count-active">Активные: {activeConversations.length}</span>
+              </span>
+            </h2>
             <div className="conversation-list">
-              {queuedConversations.map((conv) => (
-                <div
-                  key={conv.conversation_id}
-                  className={`conversation-item queued ${isAdmin || isSupervisor ? 'disabled' : ''}`}
-                  onClick={() => {
-                    if (!isAdmin && !isSupervisor) {
-                      handleAcceptConversation(conv.conversation_id);
-                    }
-                  }}
-                >
-                  <div className="conversation-header">
-                    <strong>{conv.client?.name || 'Клиент'}</strong>
-                    <span className="waiting-time">{getWaitingTime(conv.queued_at)}</span>
-                  </div>
-                  <div className="conversation-meta">
-                    <span>{conv.client?.phone}</span>
-                    <span className="channel-badge">{conv.client?.channel}</span>
-                  </div>
-                </div>
-              ))}
-              {queuedConversations.length === 0 && (
-                <div className="empty-state">Нет диалогов в очереди</div>
-              )}
-            </div>
-          </div>
-
-          <div className="sidebar-section">
-            <h2>Активные ({activeConversations.length})</h2>
-            <div className="conversation-list">
-              {activeConversations.map((conv) => (
-                <div
-                  key={conv.conversation_id}
-                  className={`conversation-item ${selectedConversation?.conversation_id === conv.conversation_id ? 'active' : ''} ${unreadCounts[conv.conversation_id] ? 'has-unread' : ''}`}
-                  onClick={() => handleSelectConversation(conv)}
-                >
-                  <div className="conversation-header">
-                    <strong>{conv.client?.name || 'Клиент'}</strong>
-                    <div className="conversation-badges">
-                      {unreadCounts[conv.conversation_id] > 0 && (
-                        <span className="unread-badge">{unreadCounts[conv.conversation_id]}</span>
-                      )}
-                      {isSupervisor && conv.assigned_operator_id && conv.assigned_operator_id !== operator.operator_id && (
-                        <span className="other-operator-badge">Другой оператор</span>
+              {allConversations.map((conv) => {
+                const isQueued = conv.listStatus === 'queued';
+                const isSelected = selectedConversation?.conversation_id === conv.conversation_id;
+                const hasUnread = unreadCounts[conv.conversation_id] > 0;
+                
+                return (
+                  <div
+                    key={conv.conversation_id}
+                    className={`conversation-item ${isQueued ? 'queued' : 'active'} ${isSelected ? 'selected' : ''} ${hasUnread ? 'has-unread' : ''} ${isAdmin || isSupervisor ? (isQueued ? 'disabled' : '') : ''}`}
+                    onClick={() => {
+                      if (isQueued) {
+                        if (!isAdmin && !isSupervisor) {
+                          handleAcceptConversation(conv.conversation_id);
+                        }
+                      } else {
+                        handleSelectConversation(conv);
+                      }
+                    }}
+                  >
+                    <div className="conversation-header">
+                      <div className="conversation-title-row">
+                        <strong>{conv.client?.name || 'Клиент'}</strong>
+                        <div className="conversation-badges">
+                          {isQueued ? (
+                            <span className="status-badge-queued">⏳ Очередь</span>
+                          ) : (
+                            <span className="status-badge-active">💬 Активен</span>
+                          )}
+                          {hasUnread && (
+                            <span className="unread-badge">{unreadCounts[conv.conversation_id]}</span>
+                          )}
+                          {!isQueued && isSupervisor && conv.assigned_operator_id && conv.assigned_operator_id !== operator.operator_id && (
+                            <span className="other-operator-badge">Другой оператор</span>
+                          )}
+                        </div>
+                      </div>
+                      {isQueued && conv.queued_at && (
+                        <span className="waiting-time">Ожидание: {getWaitingTime(conv.queued_at)}</span>
                       )}
                     </div>
+                    <div className="conversation-meta">
+                      <span>{conv.client?.phone}</span>
+                      <span className="channel-badge">{conv.client?.channel}</span>
+                    </div>
                   </div>
-                  <div className="conversation-meta">
-                    <span>{conv.client?.phone}</span>
-                    <span className="channel-badge">{conv.client?.channel}</span>
-                  </div>
-                </div>
-              ))}
-              {activeConversations.length === 0 && (
-                <div className="empty-state">Нет активных диалогов</div>
+                );
+              })}
+              {allConversations.length === 0 && (
+                <div className="empty-state">Нет диалогов</div>
               )}
             </div>
           </div>
