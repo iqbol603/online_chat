@@ -216,7 +216,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       const hostname = window.location.hostname;
       // Локально backend на 3060, на сервере backend на https://wifi.babilon-t.tj:3063
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:3000';
+        return 'http://localhost:3060';
       }
       return 'wss://wifi.babilon-t.tj:3063';
     };
