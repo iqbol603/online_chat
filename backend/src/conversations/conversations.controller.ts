@@ -97,6 +97,27 @@ export class ConversationsController {
     );
   }
 
+  @Get('archived/by-period')
+  @UseGuards(JwtAuthGuard)
+  async findAllArchivedByPeriod(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Request() req?: any,
+  ) {
+    const user = req?.user;
+    if (!user || (user.role !== 'admin' && user.role !== 'supervisor')) {
+      throw new ForbiddenException('Access denied. Admin or Supervisor role required.');
+    }
+
+    if (!startDate || !endDate) {
+      throw new BadRequestException(
+        'startDate and endDate are required (format: YYYY-MM-DD)',
+      );
+    }
+
+    return await this.conversationsService.findAllArchivedByPeriod(startDate, endDate);
+  }
+
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return await this.conversationsService.findById(id);

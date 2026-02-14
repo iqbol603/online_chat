@@ -268,6 +268,25 @@ export class ConversationsService {
       .getMany();
   }
 
+  /**
+   * Получить все закрытые чаты за период (для быстрой статистики)
+   */
+  async findAllArchivedByPeriod(startDate: string, endDate: string): Promise<Conversation[]> {
+    return await this.conversationsRepository
+      .createQueryBuilder('conversation')
+      .where('conversation.status = :status', { status: 'closed' })
+      .andWhere('conversation.closed_at IS NOT NULL')
+      .andWhere('DATE(conversation.closed_at) BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .leftJoinAndSelect('conversation.client', 'client')
+      .leftJoinAndSelect('conversation.assigned_operator', 'assigned_operator')
+      .leftJoinAndSelect('conversation.queue', 'queue')
+      .orderBy('conversation.closed_at', 'DESC')
+      .getMany();
+  }
+
   async addTag(conversationId: number, tag: string): Promise<Conversation> {
     const conversation = await this.findById(conversationId);
     const tags = conversation.tags || [];
