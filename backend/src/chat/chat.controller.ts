@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, ParseIntPipe, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, ParseIntPipe, ForbiddenException, Req } from '@nestjs/common';
 import { IsString, MinLength, IsEnum, IsOptional } from 'class-validator';
 import { ClientsService } from '../clients/clients.service';
 import { ConversationsService } from '../conversations/conversations.service';
@@ -47,7 +47,15 @@ export class ChatController {
   ) {}
 
   @Post('start')
-  async startChat(@Body() dto: StartChatDto) {
+  async startChat(@Body() dto: StartChatDto, @Req() req?: any) {
+    // Логируем входящий запрос для отладки
+    const origin = req?.headers?.origin || 'unknown';
+    const referer = req?.headers?.referer || 'unknown';
+    console.log('[ChatController] POST /api/chat/start - Request received');
+    console.log('[ChatController] Origin:', origin);
+    console.log('[ChatController] Referer:', referer);
+    console.log('[ChatController] Request body:', { ...dto, phone: dto.phone ? '***' : undefined });
+    
     // Проверяем, не заблокирован ли клиент
     const isBlocked = await this.blockedClientsService.isBlocked(dto.phone);
     if (isBlocked) {

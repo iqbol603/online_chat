@@ -64,6 +64,15 @@ const getWsUrl = () => {
 const API_URL = getApiUrl();
 const WS_URL = getWsUrl();
 
+// Логирование для отладки
+if (typeof window !== 'undefined') {
+  console.log('[ChatWidget] API_URL:', API_URL);
+  console.log('[ChatWidget] WS_URL:', WS_URL);
+  console.log('[ChatWidget] Current origin:', window.location.origin);
+  console.log('[ChatWidget] Current hostname:', window.location.hostname);
+  console.log('[ChatWidget] Current protocol:', window.location.protocol);
+}
+
 interface Message {
   message_id: number;
   conversation_id?: number;
@@ -337,10 +346,54 @@ const ChatWidget: React.FC = () => {
       // Формируем полный номер в формате +992xxxxxxxxx
       const phone = `+992${formData.phone.replace(/\D/g, '').slice(0, 9)}`;
 
-      const response = await axios.post(`${API_URL}/chat/start`, {
-        ...formData,
-        phone,
-      });
+      console.log('[ChatWidget] Starting chat with API URL:', API_URL);
+      console.log('[ChatWidget] Request data:', { ...formData, phone: phone.substring(0, 8) + '***' });
+      console.log('[ChatWidget] Current origin:', window.location.origin);
+      console.log('[ChatWidget] Current hostname:', window.location.hostname);
+
+      let requestUrl = `${API_URL}/chat/start`;
+      
+      console.log('[ChatWidget] Making POST request to:', requestUrl);
+      
+      let response;
+      try {
+        response = await axios.post(requestUrl, {
+          ...formData,
+          phone,
+        }, {
+          timeout: 15000, // 15 секунд таймаут
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          withCredentials: false,
+          validateStatus: (status) => status < 500,
+        });
+      } catch (firstError: any) {
+        // Если получили 404, попробуем альтернативный путь без /api
+        if (firstError.response?.status === 404) {
+          console.log('[ChatWidget] Got 404, trying alternative path without /api');
+          const baseUrl = API_URL.replace('/api', '');
+          const altUrl = `${baseUrl}/chat/start`;
+          console.log('[ChatWidget] Trying alternative URL:', altUrl);
+          response = await axios.post(altUrl, {
+            ...formData,
+            phone,
+          }, {
+            timeout: 15000,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            withCredentials: false,
+            validateStatus: (status) => status < 500,
+          });
+        } else {
+          throw firstError;
+        }
+      }
+      
+      console.log('[ChatWidget] Response received:', response.status, response.data);
 
       setClient(response.data.client);
       setConversation(response.data.conversation);
@@ -351,8 +404,50 @@ const ChatWidget: React.FC = () => {
       localStorage.setItem('clientId', response.data.client.client_id.toString());
       localStorage.setItem('conversationId', response.data.conversation.conversation_id.toString());
     } catch (error: any) {
-      console.error('Error starting chat:', error);
-      alert(error.response?.data?.message || 'Ошибка при запуске чата');
+      console.error('[ChatWidget] Error starting chat:', error);
+      console.error('[ChatWidget] Error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+        request: error.request,
+        config: error.config,
+      });
+      
+      let errorMessage = 'Ошибка при запуске чата';
+      
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        // Это может быть CORS проблема или SSL проблема
+        errorMessage = 'Не удалось подключиться к серверу чата. Возможные причины:\n' +
+          '1. Проблема с CORS настройками сервера\n' +
+          '2. Проблема с SSL сертификатом\n' +
+          '3. Блокировка браузером\n\n' +
+          'Попробуйте обновить страницу или обратитесь в поддержку.';
+        console.error('[ChatWidget] Network error - возможна CORS или SSL проблема:', {
+          url: `${API_URL}/chat/start`,
+          origin: window.location.origin,
+          hostname: window.location.hostname,
+          message: error.message,
+          code: error.code,
+        });
+      } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        errorMessage = 'Превышено время ожидания ответа от сервера. Попробуйте позже.';
+      } else if (error.response) {
+        // Сервер ответил с ошибкой
+        const status = error.response.status;
+        if (status === 401 || status === 403) {
+          errorMessage = 'Ошибка авторизации. Обновите страницу.';
+        } else if (status >= 500) {
+          errorMessage = 'Ошибка на сервере. Попробуйте позже.';
+        } else {
+          errorMessage = error.response.data?.message || `Ошибка сервера: ${status}`;
+        }
+      } else if (error.request) {
+        // Запрос был отправлен, но ответа не получено
+        errorMessage = 'Сервер не отвечает. Проверьте подключение к интернету.';
+      }
+      
+      alert(errorMessage);
     }
   };
 

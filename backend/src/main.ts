@@ -74,6 +74,11 @@ async function bootstrap() {
       
       if (isServerDomain) {
         console.log('[CORS] Allowing server domain origin:', origin);
+        console.log('[CORS] Origin details:', {
+          origin,
+          hostname: origin ? new URL(origin).hostname : 'N/A',
+          protocol: origin ? new URL(origin).protocol : 'N/A',
+        });
         return callback(null, true);
       }
       
