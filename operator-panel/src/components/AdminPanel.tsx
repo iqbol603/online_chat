@@ -275,7 +275,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
     setLoadingQuickStats(true);
     try {
       const token = localStorage.getItem('operator_token');
-      const response = await axios.get(`${apiUrl}/conversations/closed-by-period`, {
+      const response = await axios.get(`${apiUrl}/conversations/archived/by-period`, {
         params: {
           startDate: quickStatsPeriod.startDate,
           endDate: quickStatsPeriod.endDate,
