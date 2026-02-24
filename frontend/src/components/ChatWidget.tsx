@@ -57,7 +57,8 @@ const getWsUrl = () => {
       return 'http://localhost:3000';
     }
     // WebSocket для https-домена
-    return 'wss://wifi.babilon-t.tj:3063';
+    // return 'wss://wifi.babilon-t.tj:3063';
+    return 'wss://chatbt.babilon-t.com/chat_backend';
   }
   return 'http://localhost:3000';
 };
