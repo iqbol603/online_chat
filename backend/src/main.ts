@@ -4,9 +4,35 @@ import { AppModule } from './app.module';
 import * as os from 'os';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import { readFileSync, existsSync } from 'fs';
+
+// Загрузка .env относительно папки backend (важно для cPanel, когда cwd не backend)
+const pathToEnv = __dirname.includes('dist')
+  ? join(__dirname, '..', '..', '.env')
+  : join(__dirname, '..', '.env');
+if (existsSync(pathToEnv)) {
+  const content = readFileSync(pathToEnv, 'utf8');
+  content.split('\n').forEach((line) => {
+    const m = line.match(/^([^#=]+)=(.*)$/);
+    if (m) process.env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, '');
+  });
+  console.log('[main] Loaded .env from', pathToEnv);
+} else {
+  console.warn('[main] No .env at', pathToEnv, '- using process.env');
+}
+// Проверка переменных при старте (без вывода секретов)
+console.log('[main] DB_HOST=', process.env.DB_HOST ? 'set' : 'MISSING', 'JWT_SECRET=', process.env.JWT_SECRET ? 'set' : 'MISSING');
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  
+  // Опциональный глобальный префикс для всех маршрутов (например, /chat_backend)
+  // На cPanel можно задать переменную окружения GLOBAL_PREFIX=chat_backend
+  const globalPrefix = process.env.GLOBAL_PREFIX;
+  if (globalPrefix) {
+    app.setGlobalPrefix(globalPrefix);
+    console.log(`[main] Global prefix set: ${globalPrefix}`);
+  }
   
   // Настройка статических файлов для загрузок
   // После компиляции __dirname будет dist/src, поэтому нужно подняться на 2 уровня вверх
@@ -58,6 +84,7 @@ async function bootstrap() {
       // Разрешаем домен сервера wifi.babilon-t.tj и основной сайт babilon-t.com
       const isServerDomain = 
         /^https?:\/\/wifi\.babilon-t\.tj/.test(origin) || 
+        /^https?:\/\/chatbt\.babilon-t\.com/.test(origin) || 
         /^https?:\/\/(www\.)?babilon-t\.com/.test(origin) ||
         /^https?:\/\/babilon-t\.com/.test(origin);
       
@@ -91,7 +118,7 @@ async function bootstrap() {
       
       // Логируем только блокированные запросы (важно для отладки)
       console.warn('[CORS] Blocking origin:', origin);
-      console.warn('[CORS] Allowed patterns: localhost, local network, wifi.babilon-t.tj, babilon-t.com, www.babilon-t.com');
+      console.warn('[CORS] Allowed: localhost, local network, wifi.babilon-t.tj, *.babilon-t.com (в т.ч. chatbt), CORS_ORIGIN');
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,

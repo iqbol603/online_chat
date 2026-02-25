@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { io, Socket } from 'socket.io-client';
 import axios from 'axios';
 import AdminPanel from './AdminPanel';
@@ -77,6 +78,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const selectedConversationRef = useRef<Conversation | null>(null);
   const activeConversationsRef = useRef<Conversation[]>([]);
   const queuedConversationsRef = useRef<Conversation[]>([]);
+  const activeTabRef = useRef<'chats' | 'admin' | 'operators'>(activeTab);
   const isAdmin = operator.role === 'admin';
   const isSupervisor = operator.role === 'supervisor' || operator.role === 'admin';
   const isAssignedToCurrent =
@@ -105,6 +107,11 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   // Модальное окно для просмотра фото
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // Всплывающее окно уведомлений (вместо создания div в DOM)
+  const [notificationPopup, setNotificationPopup] = useState<{ title: string; body: string } | null>(null);
+  const notificationPopupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialQueuedLoadDoneRef = useRef(false);
+
   const responseTemplates: Record<TemplateLanguage, string[]> = {
     ru: [
       'Здравствуйте! Чем могу помочь?',
@@ -131,21 +138,15 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
 
   const playNotificationSound = () => {
     try {
-      // Создаем звук уведомления программно
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
-      
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
-      
-      // Настройки звука (короткий бип)
       oscillator.frequency.value = 800;
       oscillator.type = 'sine';
-      
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-      
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.2);
     } catch (error) {
@@ -153,57 +154,60 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     }
   };
 
-  const showNotification = (clientName: string, messageText: string) => {
-    // Воспроизводим звуковое уведомление
-    playNotificationSound();
-    
-    // Проверяем поддержку браузерных уведомлений
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const notification = new Notification(`Новое сообщение от ${clientName}`, {
-        body: messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText,
+  /** Системное уведомление браузера — видно даже когда оператор на другой вкладке */
+  const showBrowserNotification = (title: string, body: string) => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      const n = new Notification(title, {
+        body: body.length > 100 ? body.slice(0, 97) + '...' : body,
         icon: '/favicon.ico',
-        tag: `message-${Date.now()}`,
+        tag: `notif-${Date.now()}`,
       });
-      
-      notification.onclick = () => {
+      n.onclick = () => {
         window.focus();
-        notification.close();
+        n.close();
       };
-    } else if ('Notification' in window && Notification.permission !== 'denied') {
-      // Запрашиваем разрешение
-      Notification.requestPermission().then((permission) => {
-        if (permission === 'granted') {
-          showNotification(clientName, messageText);
-        }
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission().then((p) => {
+        if (p === 'granted') showBrowserNotification(title, body);
       });
     }
-    
-    // Также показываем визуальное уведомление в интерфейсе
-    const notificationElement = document.createElement('div');
-    notificationElement.className = 'message-notification';
-    notificationElement.innerHTML = `
-      <div class="notification-content">
-        <strong>${clientName}</strong>
-        <span>${messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText}</span>
-      </div>
-    `;
-    document.body.appendChild(notificationElement);
-    
-    // Анимация появления
-    setTimeout(() => {
-      notificationElement.classList.add('show');
-    }, 10);
-    
-    // Удаляем через 5 секунд
-    setTimeout(() => {
-      notificationElement.classList.remove('show');
-      setTimeout(() => {
-        if (document.body.contains(notificationElement)) {
-          document.body.removeChild(notificationElement);
-        }
-      }, 300);
-    }, 5000);
   };
+
+  const showNotificationPopup = (title: string, body: string) => {
+    if (notificationPopupTimeoutRef.current) {
+      clearTimeout(notificationPopupTimeoutRef.current);
+      notificationPopupTimeoutRef.current = null;
+    }
+    playNotificationSound();
+    // Всегда показываем системное уведомление — оператор увидит его даже на другой вкладке
+    showBrowserNotification(title, body);
+    const payload = { title, body };
+    setTimeout(() => {
+      setNotificationPopup(payload);
+      notificationPopupTimeoutRef.current = setTimeout(() => {
+        setNotificationPopup(null);
+        notificationPopupTimeoutRef.current = null;
+      }, 5000);
+    }, 0);
+  };
+
+  const closeNotificationPopup = () => {
+    if (notificationPopupTimeoutRef.current) {
+      clearTimeout(notificationPopupTimeoutRef.current);
+      notificationPopupTimeoutRef.current = null;
+    }
+    setNotificationPopup(null);
+  };
+
+  const showNotification = (clientName: string, messageText: string) => {
+    const shortText = messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText;
+    showNotificationPopup(`Новое сообщение от ${clientName}`, shortText);
+  };
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
 
   useEffect(() => {
     // Запрашиваем разрешение на уведомления при загрузке
@@ -211,19 +215,21 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       Notification.requestPermission();
     }
     
-    // Автоматическое определение WebSocket URL
+    // Автоматическое определение WebSocket URL (тот же хост, что и API)
     const getWsUrl = () => {
       const hostname = window.location.hostname;
-      // Локально backend на 3060, на сервере backend на https://wifi.babilon-t.tj:3063
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:3060';
+        return 'http://localhost:3000';
+      }
+      // chatbt.babilon-t.com — бэкенд на /chat_backend
+      if (hostname === 'chatbt.babilon-t.com') {
+        return 'wss://chatbt.babilon-t.com/chat_backend';
       }
       return 'wss://wifi.babilon-t.tj:3063';
     };
     
-    // Подключение к WebSocket
     const newSocket = io(getWsUrl(), {
-      transports: ['websocket', 'polling'], // Fallback на polling если WebSocket не работает
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -248,8 +254,24 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     });
 
     newSocket.on('conversations:queued', (conversations: Conversation[]) => {
+      const prev = queuedConversationsRef.current;
       setQueuedConversations(conversations);
       queuedConversationsRef.current = conversations;
+      if (!initialQueuedLoadDoneRef.current) {
+        initialQueuedLoadDoneRef.current = true;
+        return;
+      }
+      const newInQueue = conversations.filter(
+        (c) => !prev.some((p) => p.conversation_id === c.conversation_id)
+      );
+      if (newInQueue.length > 0) {
+        const names = newInQueue.map((c) => c.client?.name || 'Клиент').join(', ');
+        const title = newInQueue.length === 1 ? 'Абонент в очереди' : 'Абоненты в очереди';
+        const body = newInQueue.length === 1
+          ? (newInQueue[0].client?.name || 'Клиент')
+          : `${newInQueue.length} новых: ${names}`;
+        showNotificationPopup(title, body);
+      }
     });
 
     newSocket.on('conversations:active', (conversations: Conversation[]) => {
@@ -353,11 +375,14 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
       
       // Проверяем, видна ли вкладка браузера
       const isTabVisible = !document.hidden && document.visibilityState === 'visible';
+      // Оператор не на вкладке «Чаты» (смотрит Админ-панель или Управление операторами)
+      const notOnChatsTab = activeTabRef.current !== 'chats';
       
-      // Если это сообщение от клиента - показываем уведомление в двух случаях:
-      // 1. Диалог не открыт (независимо от видимости вкладки)
-      // 2. Диалог открыт, но вкладка не видна (оператор на другой вкладке)
-      if (message.sender_type === 'client' && (!isCurrentConversation || !isTabVisible)) {
+      // Если это сообщение от клиента — показываем уведомление, когда:
+      // 1. Диалог не открыт, или
+      // 2. Вкладка браузера не видна (оператор в другой вкладке), или
+      // 3. Оператор не на вкладке «Чаты» (на Админ / Управление операторами)
+      if (message.sender_type === 'client' && (!isCurrentConversation || !isTabVisible || notOnChatsTab)) {
         // Находим информацию о клиенте из текущих состояний (через refs)
         const conversation =
           activeConversationsRef.current.find((c) => c.conversation_id === message.conversation_id) ||
@@ -1412,6 +1437,46 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
           </div>
         </div>
       )}
+
+      {/* Всплывающее окно уведомления — рендер в body */}
+      {notificationPopup &&
+        createPortal(
+          <div
+            className="notification-popup-overlay"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 999999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.4)',
+            }}
+          >
+            <div
+              className="notification-popup-window"
+              style={{
+                background: darkMode ? '#2d2d2d' : 'white',
+                minWidth: 320,
+                color: darkMode ? '#e0e0e0' : '#333',
+              }}
+            >
+              <div className="notification-popup-header">
+                <span className="notification-popup-title">{notificationPopup.title}</span>
+                <button
+                  type="button"
+                  className="notification-popup-close"
+                  onClick={closeNotificationPopup}
+                  title="Закрыть"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="notification-popup-body">{notificationPopup.body}</div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Модальное окно для просмотра фото */}
       {selectedImage && (

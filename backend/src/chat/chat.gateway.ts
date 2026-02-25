@@ -22,42 +22,33 @@ interface ClientSocket extends Socket {
   conversationId?: number;
 }
 
+// Путь для Socket.IO: если задан GLOBAL_PREFIX (например chat_backend), слушаем /chat_backend/socket.io
+const wsPath = process.env.GLOBAL_PREFIX
+  ? `/${process.env.GLOBAL_PREFIX}/socket.io`
+  : '/socket.io';
+
 @WebSocketGateway({
+  path: wsPath,
   cors: {
     origin: (origin, callback) => {
-      // Разрешаем запросы без origin
       if (!origin) return callback(null, true);
-      
-      // Разрешаем localhost и локальную сеть
       const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)/.test(origin);
       const isLocalNetwork = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(origin);
-      
-      // Разрешаем порты 3001 и 3002
       const isAllowedPort = /:300[12]/.test(origin);
-      
-      // Разрешаем домен сервера wifi.babilon-t.tj
-      const isServerDomain = /^https?:\/\/wifi\.babilon-t\.tj/.test(origin);
-      
-      if ((isLocalhost || isLocalNetwork) && isAllowedPort) {
-        return callback(null, true);
-      }
-      
-      if (isServerDomain) {
-        return callback(null, true);
-      }
-      
-      // Проверяем явно указанные origins
+      const isServerDomain =
+        /^https?:\/\/wifi\.babilon-t\.tj/.test(origin) ||
+        /^https?:\/\/([a-z0-9-]+\.)*babilon-t\.com$/.test(origin) ||
+        /^https?:\/\/babilon-t\.com$/.test(origin);
+      if ((isLocalhost || isLocalNetwork) && isAllowedPort) return callback(null, true);
+      if (isServerDomain) return callback(null, true);
       const corsOrigins = process.env.CORS_ORIGIN?.split(',') || [];
-      if (corsOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      
+      if (corsOrigins.includes(origin)) return callback(null, true);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
   },
-  transports: ['websocket', 'polling'], // Поддержка WebSocket и polling
-  allowEIO3: true, // Поддержка старых версий Socket.IO
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
