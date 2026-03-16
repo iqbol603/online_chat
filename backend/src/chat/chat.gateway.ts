@@ -38,7 +38,9 @@ const wsPath = process.env.GLOBAL_PREFIX
       const isServerDomain =
         /^https?:\/\/wifi\.babilon-t\.tj/.test(origin) ||
         /^https?:\/\/([a-z0-9-]+\.)*babilon-t\.com$/.test(origin) ||
-        /^https?:\/\/babilon-t\.com$/.test(origin);
+        /^https?:\/\/babilon-t\.com$/.test(origin) ||
+        /^https?:\/\/([a-z0-9-]+\.)*babilon-t\.tj$/.test(origin) ||
+        /^https?:\/\/babilon-t\.tj$/.test(origin);
       if ((isLocalhost || isLocalNetwork) && isAllowedPort) return callback(null, true);
       if (isServerDomain) return callback(null, true);
       const corsOrigins = process.env.CORS_ORIGIN?.split(',') || [];

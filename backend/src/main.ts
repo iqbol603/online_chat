@@ -81,12 +81,14 @@ async function bootstrap() {
       // Разрешаем порты 3001 и 3002 (frontend и operator-panel)
       const isAllowedPort = /:300[12]/.test(origin);
       
-      // Разрешаем домен сервера wifi.babilon-t.tj и основной сайт babilon-t.com
+      // Разрешаем домен сервера wifi.babilon-t.tj, babilon-t.tj и основной сайт / поддомены babilon-t.com
       const isServerDomain = 
         /^https?:\/\/wifi\.babilon-t\.tj/.test(origin) || 
         /^https?:\/\/chatbt\.babilon-t\.com/.test(origin) || 
         /^https?:\/\/(www\.)?babilon-t\.com/.test(origin) ||
-        /^https?:\/\/babilon-t\.com/.test(origin);
+        /^https?:\/\/babilon-t\.com/.test(origin) ||
+        /^https?:\/\/(www\.)?babilon-t\.tj/.test(origin) ||
+        /^https?:\/\/babilon-t\.tj/.test(origin);
       
       // Разрешаем localhost на любом порту (для разработки)
       if (isLocalhost) {
@@ -118,7 +120,7 @@ async function bootstrap() {
       
       // Логируем только блокированные запросы (важно для отладки)
       console.warn('[CORS] Blocking origin:', origin);
-      console.warn('[CORS] Allowed: localhost, local network, wifi.babilon-t.tj, *.babilon-t.com (в т.ч. chatbt), CORS_ORIGIN');
+      console.warn('[CORS] Allowed: localhost, local network, wifi.babilon-t.tj, babilon-t.com, babilon-t.tj, CORS_ORIGIN');
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
