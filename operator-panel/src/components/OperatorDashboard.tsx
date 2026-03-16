@@ -216,14 +216,24 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     }
     
     // Автоматическое определение WebSocket URL (тот же хост, что и API)
-    const getWsUrl = () => {
+    // const getWsUrl = () => {
+    //   const hostname = window.location.hostname;
+    //   if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    //     return 'http://localhost:3000';
+    //   }
+    //   // chatbt.babilon-t.com — бэкенд на /chat_backend
+    //   if (hostname === 'chatbt.babilon-t.com') {
+    //     return 'wss://chatbt.babilon-t.com/chat_backend';
+    //   }
+    //   return 'wss://wifi.babilon-t.tj:3063';
+    // };
+
+
+     const getWsUrl = () => {
       const hostname = window.location.hostname;
+      // Локально backend на 3060, на сервере backend на https://wifi.babilon-t.tj:3063
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:3000';
-      }
-      // chatbt.babilon-t.com — бэкенд на /chat_backend
-      if (hostname === 'chatbt.babilon-t.com') {
-        return 'wss://chatbt.babilon-t.com/chat_backend';
+        return 'http://localhost:3060';
       }
       return 'wss://wifi.babilon-t.tj:3063';
     };
