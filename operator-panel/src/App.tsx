@@ -12,8 +12,8 @@ const getApiUrl = () => {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:3000/api';
     }
-    return 'https://chatbt.babilon-t.com/chat_backend/api';
-    // return 'https://wifi.babilon-t.tj:3063/api';
+    // return 'https://chatbt.babilon-t.com/chat_backend/api';
+    return 'https://wifi.babilon-t.tj:3063/api';
   }
   return 'http://localhost:3000/api';
 };
