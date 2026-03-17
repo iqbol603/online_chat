@@ -111,9 +111,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [notificationPopup, setNotificationPopup] = useState<{ title: string; body: string } | null>(null);
   const notificationPopupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialQueuedLoadDoneRef = useRef(false);
-  // Мигание вкладки при абоненте в очереди (оператор на другой вкладке)
-  const originalTitleRef = useRef<string>(typeof document !== 'undefined' ? document.title : '');
-  const titleBlinkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Мигание вкладки (favicon) при абоненте в очереди
+  const originalFaviconHrefRef = useRef<string | null>(null);
+  const faviconBlinkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const responseTemplates: Record<TemplateLanguage, string[]> = {
     ru: [
@@ -203,28 +203,47 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     setNotificationPopup(null);
   };
 
-  const BLINK_TITLE = '🔵 Абонент в очереди! — Операторский кабинет';
+  const getFaviconLink = (): HTMLLinkElement | null => {
+    if (typeof document === 'undefined') return null;
+    const links = Array.from(document.querySelectorAll('link[rel~="icon"]')) as HTMLLinkElement[];
+    return links[0] || null;
+  };
 
-  const stopTitleBlink = () => {
-    if (titleBlinkIntervalRef.current) {
-      clearInterval(titleBlinkIntervalRef.current);
-      titleBlinkIntervalRef.current = null;
+  const BLUE_DOT_FAVICON = `data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+      <rect width="64" height="64" rx="12" ry="12" fill="#0b1220"/>
+      <circle cx="32" cy="32" r="18" fill="#1d4ed8"/>
+      <circle cx="32" cy="32" r="10" fill="#60a5fa"/>
+    </svg>`
+  )}`;
+
+  const stopFaviconBlink = () => {
+    if (faviconBlinkIntervalRef.current) {
+      clearInterval(faviconBlinkIntervalRef.current);
+      faviconBlinkIntervalRef.current = null;
     }
-    if (typeof document !== 'undefined' && originalTitleRef.current) {
-      document.title = originalTitleRef.current;
+    const link = getFaviconLink();
+    if (link && originalFaviconHrefRef.current) {
+      link.href = originalFaviconHrefRef.current;
     }
   };
 
-  const startTitleBlink = () => {
+  const startFaviconBlink = () => {
+    // Мигать имеет смысл, когда вкладка не активна (как индикатор)
     if (typeof document === 'undefined' || document.hidden === false) return;
-    if (titleBlinkIntervalRef.current) return; // уже мигает
-    originalTitleRef.current = document.title || 'Операторский кабинет';
-    let showBlink = true;
-    titleBlinkIntervalRef.current = setInterval(() => {
-      if (typeof document === 'undefined') return;
-      document.title = showBlink ? BLINK_TITLE : originalTitleRef.current;
-      showBlink = !showBlink;
-    }, 1000);
+    if (faviconBlinkIntervalRef.current) return; // уже мигает
+
+    const link = getFaviconLink();
+    if (!link) return;
+    if (!originalFaviconHrefRef.current) originalFaviconHrefRef.current = link.href;
+
+    let on = false;
+    faviconBlinkIntervalRef.current = setInterval(() => {
+      const l = getFaviconLink();
+      if (!l) return;
+      l.href = on ? (originalFaviconHrefRef.current || l.href) : BLUE_DOT_FAVICON;
+      on = !on;
+    }, 800);
   };
 
   const showNotification = (clientName: string, messageText: string) => {
@@ -236,11 +255,10 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     activeTabRef.current = activeTab;
   }, [activeTab]);
 
-  // При возврате на вкладку — убираем мигание заголовка
+  // При возврате на вкладку — убираем мигание favicon
   useEffect(() => {
-    originalTitleRef.current = document.title || 'Операторский кабинет';
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') stopTitleBlink();
+      if (document.visibilityState === 'visible') stopFaviconBlink();
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
@@ -318,11 +336,11 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
           ? (newInQueue[0].client?.name || 'Клиент')
           : `${newInQueue.length} новых: ${names}`;
         showNotificationPopup(title, body);
-        // Мигание вкладки, если оператор на другой вкладке — до принятия чата или возврата на вкладку
-        if (document.hidden) startTitleBlink();
+        // Мигание вкладки (favicon), если оператор на другой вкладке — до принятия чата/очередь опустеет
+        if (document.hidden) startFaviconBlink();
       }
       // Очередь пуста — перестаём мигать
-      if (conversations.length === 0) stopTitleBlink();
+      if (conversations.length === 0) stopFaviconBlink();
     });
 
     newSocket.on('conversations:active', (conversations: Conversation[]) => {
