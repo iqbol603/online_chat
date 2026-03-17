@@ -203,10 +203,18 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     setNotificationPopup(null);
   };
 
-  const getFaviconLink = (): HTMLLinkElement | null => {
+  const getOrCreateFaviconLink = (): HTMLLinkElement | null => {
     if (typeof document === 'undefined') return null;
-    const links = Array.from(document.querySelectorAll('link[rel~="icon"]')) as HTMLLinkElement[];
-    return links[0] || null;
+    const links = Array.from(
+      document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"]')
+    ) as HTMLLinkElement[];
+    if (links[0]) return links[0];
+
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.type = 'image/png';
+    document.head.appendChild(link);
+    return link;
   };
 
   const BLUE_DOT_FAVICON = `data:image/svg+xml,${encodeURIComponent(
@@ -217,15 +225,22 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     </svg>`
   )}`;
 
+  const setFaviconHref = (href: string) => {
+    const link = getOrCreateFaviconLink();
+    if (!link) return;
+    // Добавляем cache-buster, чтобы браузер точно перерисовал favicon
+    const withBuster = href.startsWith('data:')
+      ? href
+      : `${href}${href.includes('?') ? '&' : '?'}v=${Date.now()}`;
+    link.href = withBuster;
+  };
+
   const stopFaviconBlink = () => {
     if (faviconBlinkIntervalRef.current) {
       clearInterval(faviconBlinkIntervalRef.current);
       faviconBlinkIntervalRef.current = null;
     }
-    const link = getFaviconLink();
-    if (link && originalFaviconHrefRef.current) {
-      link.href = originalFaviconHrefRef.current;
-    }
+    if (originalFaviconHrefRef.current) setFaviconHref(originalFaviconHrefRef.current);
   };
 
   const startFaviconBlink = () => {
@@ -233,15 +248,13 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     if (typeof document === 'undefined' || document.hidden === false) return;
     if (faviconBlinkIntervalRef.current) return; // уже мигает
 
-    const link = getFaviconLink();
+    const link = getOrCreateFaviconLink();
     if (!link) return;
-    if (!originalFaviconHrefRef.current) originalFaviconHrefRef.current = link.href;
+    if (!originalFaviconHrefRef.current) originalFaviconHrefRef.current = link.href || '/favicon.ico';
 
     let on = false;
     faviconBlinkIntervalRef.current = setInterval(() => {
-      const l = getFaviconLink();
-      if (!l) return;
-      l.href = on ? (originalFaviconHrefRef.current || l.href) : BLUE_DOT_FAVICON;
+      setFaviconHref(on ? (originalFaviconHrefRef.current || '/favicon.ico') : BLUE_DOT_FAVICON);
       on = !on;
     }, 800);
   };
