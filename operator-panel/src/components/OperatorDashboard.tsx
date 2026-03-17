@@ -111,6 +111,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [notificationPopup, setNotificationPopup] = useState<{ title: string; body: string } | null>(null);
   const notificationPopupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialQueuedLoadDoneRef = useRef(false);
+  // Мигание вкладки при абоненте в очереди (оператор на другой вкладке)
+  const originalTitleRef = useRef<string>(typeof document !== 'undefined' ? document.title : '');
+  const titleBlinkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const responseTemplates: Record<TemplateLanguage, string[]> = {
     ru: [
@@ -200,6 +203,30 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     setNotificationPopup(null);
   };
 
+  const BLINK_TITLE = '🔵 Абонент в очереди! — Операторский кабинет';
+
+  const stopTitleBlink = () => {
+    if (titleBlinkIntervalRef.current) {
+      clearInterval(titleBlinkIntervalRef.current);
+      titleBlinkIntervalRef.current = null;
+    }
+    if (typeof document !== 'undefined' && originalTitleRef.current) {
+      document.title = originalTitleRef.current;
+    }
+  };
+
+  const startTitleBlink = () => {
+    if (typeof document === 'undefined' || document.hidden === false) return;
+    if (titleBlinkIntervalRef.current) return; // уже мигает
+    originalTitleRef.current = document.title || 'Операторский кабинет';
+    let showBlink = true;
+    titleBlinkIntervalRef.current = setInterval(() => {
+      if (typeof document === 'undefined') return;
+      document.title = showBlink ? BLINK_TITLE : originalTitleRef.current;
+      showBlink = !showBlink;
+    }, 1000);
+  };
+
   const showNotification = (clientName: string, messageText: string) => {
     const shortText = messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText;
     showNotificationPopup(`Новое сообщение от ${clientName}`, shortText);
@@ -208,6 +235,16 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
+  // При возврате на вкладку — убираем мигание заголовка
+  useEffect(() => {
+    originalTitleRef.current = document.title || 'Операторский кабинет';
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') stopTitleBlink();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
 
   useEffect(() => {
     // Запрашиваем разрешение на уведомления при загрузке
@@ -281,7 +318,11 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
           ? (newInQueue[0].client?.name || 'Клиент')
           : `${newInQueue.length} новых: ${names}`;
         showNotificationPopup(title, body);
+        // Мигание вкладки, если оператор на другой вкладке — до принятия чата или возврата на вкладку
+        if (document.hidden) startTitleBlink();
       }
+      // Очередь пуста — перестаём мигать
+      if (conversations.length === 0) stopTitleBlink();
     });
 
     newSocket.on('conversations:active', (conversations: Conversation[]) => {
