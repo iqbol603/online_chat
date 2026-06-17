@@ -67,6 +67,7 @@ export class ConversationsController {
     @Query('endDate') endDate: string,
     @Query('includeAssigned') includeAssigned?: string,
     @Query('includeClosedBy') includeClosedBy?: string,
+    @Query('limit') limit?: string,
     @Request() req?: any,
   ) {
     const user = req?.user;
@@ -94,6 +95,7 @@ export class ConversationsController {
       effectiveEnd,
       incAssigned,
       incClosedBy,
+      limit ? Math.min(parseInt(limit, 10) || 500, 1000) : 500,
     );
   }
 

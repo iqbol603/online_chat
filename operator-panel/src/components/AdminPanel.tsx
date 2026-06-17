@@ -147,9 +147,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
             endDate: analyticsPeriod.endDate,
             includeAssigned: String(includeAssigned),
             includeClosedBy: String(includeClosedBy),
+            limit: 500,
           },
           headers: getAuthHeaders(),
-          timeout: 60000,
+          timeout: 120000,
         }
       );
       setArchivedConversations(response.data);
@@ -159,6 +160,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
     } catch (error: any) {
       console.error('Error loading archived conversations:', error);
       const msg = error.response?.data?.message
+        || (error.code === 'ECONNABORTED' ? 'Превышено время ожидания. Сузьте период или обновите backend.' : null)
         || (error.code === 'ERR_NETWORK' ? 'Нет связи с сервером. Проверьте API и авторизацию.' : error.message)
         || 'Ошибка загрузки архивных чатов';
       alert(msg);

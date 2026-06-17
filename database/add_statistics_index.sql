@@ -7,3 +7,7 @@
 
 ALTER TABLE `conversations` 
 ADD INDEX `idx_operator_status_closed` (`assigned_operator_id`, `status`, `closed_at`);
+
+-- Для фильтра «закрыл оператор» в аналитике
+ALTER TABLE `conversations`
+ADD INDEX `idx_closed_by_status` (`closed_by_operator_id`, `status`, `closed_at`);

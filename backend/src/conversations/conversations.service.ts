@@ -225,65 +225,93 @@ export class ConversationsService {
     endDate: string,
     includeAssigned = true,
     includeClosedBy = true,
+    limit = 500,
   ): Promise<Conversation[]> {
-    // Если ни один флаг не выбран — возвращаем пусто
     if (!includeAssigned && !includeClosedBy) {
       return [];
     }
 
-    const involvement: string[] = [];
-    if (includeAssigned) {
-      involvement.push('conversation.assigned_operator_id = :operatorId');
-      // Если диалог был переназначен, assigned_operator_id может указывать на другого оператора.
-      // Поэтому считаем "вёл" также по факту сообщений оператора в диалоге.
-      involvement.push(
-        `EXISTS (
-          SELECT 1
-          FROM messages m
-          WHERE m.conversation_id = conversation.conversation_id
-            AND m.sender_type = 'operator'
-            AND m.sender_id = :operatorId
-        )`,
-      );
-    }
+    const start = `${startDate} 00:00:00`;
+    const end = `${endDate} 23:59:59`;
+
+    const orParts: string[] = [];
+    const params: Record<string, unknown> = {
+      operatorId,
+      status: 'closed',
+      start,
+      end,
+    };
+
     if (includeClosedBy) {
-      involvement.push('conversation.closed_by_operator_id = :operatorId');
+      orParts.push('conversation.closed_by_operator_id = :operatorId');
+    }
+    if (includeAssigned) {
+      orParts.push('conversation.assigned_operator_id = :operatorId');
+
+      // Отдельный быстрый запрос вместо EXISTS по всей таблице messages
+      const rows = await this.conversationsRepository.manager
+        .createQueryBuilder()
+        .select('DISTINCT m.conversation_id', 'conversation_id')
+        .from('messages', 'm')
+        .innerJoin(
+          'conversations',
+          'c',
+          'c.conversation_id = m.conversation_id AND c.status = :status AND c.closed_at IS NOT NULL AND c.closed_at >= :start AND c.closed_at <= :end',
+        )
+        .where('m.sender_type = :senderType', { senderType: 'operator' })
+        .andWhere('m.sender_id = :operatorId', { operatorId })
+        .setParameters({ status: 'closed', start, end, operatorId, senderType: 'operator' })
+        .limit(5000)
+        .getRawMany<{ conversation_id: number }>();
+
+      const messageConversationIds = rows.map((r) => Number(r.conversation_id)).filter(Boolean);
+      if (messageConversationIds.length > 0) {
+        orParts.push('conversation.conversation_id IN (:...messageConversationIds)');
+        params.messageConversationIds = messageConversationIds;
+      }
+    }
+
+    if (orParts.length === 0) {
+      return [];
     }
 
     return await this.conversationsRepository
       .createQueryBuilder('conversation')
-      // Диалоги, где оператор был назначен и/или где он закрыл диалог
-      .where(`(${involvement.join(' OR ')})`, { operatorId })
+      .where(`(${orParts.join(' OR ')})`, params)
       .andWhere('conversation.status = :status', { status: 'closed' })
       .andWhere('conversation.closed_at IS NOT NULL')
-      // ВАЖНО: фильтруем по дате в БД, чтобы не ловить смещения по таймзоне/UTC
-      .andWhere('DATE(conversation.closed_at) BETWEEN :startDate AND :endDate', {
-        startDate,
-        endDate,
-      })
+      .andWhere('conversation.closed_at >= :start', { start })
+      .andWhere('conversation.closed_at <= :end', { end })
       .leftJoinAndSelect('conversation.client', 'client')
       .leftJoinAndSelect('conversation.assigned_operator', 'assigned_operator')
       .leftJoinAndSelect('conversation.queue', 'queue')
       .orderBy('conversation.closed_at', 'DESC')
+      .take(Math.min(Math.max(limit, 1), 1000))
       .getMany();
   }
 
   /**
    * Получить все закрытые чаты за период (для быстрой статистики)
    */
-  async findAllArchivedByPeriod(startDate: string, endDate: string): Promise<Conversation[]> {
+  async findAllArchivedByPeriod(
+    startDate: string,
+    endDate: string,
+    limit = 1000,
+  ): Promise<Conversation[]> {
+    const start = `${startDate} 00:00:00`;
+    const end = `${endDate} 23:59:59`;
+
     return await this.conversationsRepository
       .createQueryBuilder('conversation')
       .where('conversation.status = :status', { status: 'closed' })
       .andWhere('conversation.closed_at IS NOT NULL')
-      .andWhere('DATE(conversation.closed_at) BETWEEN :startDate AND :endDate', {
-        startDate,
-        endDate,
-      })
+      .andWhere('conversation.closed_at >= :start', { start })
+      .andWhere('conversation.closed_at <= :end', { end })
       .leftJoinAndSelect('conversation.client', 'client')
       .leftJoinAndSelect('conversation.assigned_operator', 'assigned_operator')
       .leftJoinAndSelect('conversation.queue', 'queue')
       .orderBy('conversation.closed_at', 'DESC')
+      .take(Math.min(Math.max(limit, 1), 2000))
       .getMany();
   }
 
