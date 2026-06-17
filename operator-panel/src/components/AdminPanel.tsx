@@ -16,6 +16,11 @@ interface AdminPanelProps {
   operatorRole?: 'operator' | 'supervisor' | 'admin';
 }
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('operator_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 interface OperatorStatistics {
   operator_id: number;
   name: string;
@@ -49,6 +54,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
   const [archivedConversations, setArchivedConversations] = useState<any[]>([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<any | null>(null);
+  const [selectedArchivedId, setSelectedArchivedId] = useState<number | null>(null);
   const [conversationMessages, setConversationMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
@@ -139,15 +145,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
           params: {
             startDate: analyticsPeriod.startDate,
             endDate: analyticsPeriod.endDate,
-            includeAssigned,
-            includeClosedBy,
+            includeAssigned: String(includeAssigned),
+            includeClosedBy: String(includeClosedBy),
           },
+          headers: getAuthHeaders(),
+          timeout: 60000,
         }
       );
       setArchivedConversations(response.data);
+      setSelectedArchivedId(null);
+      setSelectedConversation(null);
+      setConversationMessages([]);
     } catch (error: any) {
       console.error('Error loading archived conversations:', error);
-      alert(error.response?.data?.message || 'Ошибка загрузки архивных чатов');
+      const msg = error.response?.data?.message
+        || (error.code === 'ERR_NETWORK' ? 'Нет связи с сервером. Проверьте API и авторизацию.' : error.message)
+        || 'Ошибка загрузки архивных чатов';
+      alert(msg);
     } finally {
       setLoadingArchived(false);
     }
@@ -156,7 +170,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
   const loadConversationMessages = async (conversationId: number) => {
     setLoadingMessages(true);
     try {
-      const response = await axios.get(`${apiUrl}/messages/conversation/${conversationId}`);
+      const response = await axios.get(`${apiUrl}/messages/conversation/${conversationId}`, {
+        headers: getAuthHeaders(),
+      });
       setConversationMessages(response.data);
     } catch (error: any) {
       console.error('Error loading messages:', error);
@@ -189,6 +205,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
           startDate: statisticsPeriod.startDate,
           endDate: statisticsPeriod.endDate,
         },
+        headers: getAuthHeaders(),
       });
       setStatistics(response.data.statistics);
       setShowStatistics(true);
@@ -535,7 +552,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
                 </thead>
                 <tbody>
                   {archivedConversations.map((conv) => (
-                    <tr key={conv.conversation_id}>
+                    <tr
+                      key={conv.conversation_id}
+                      style={{
+                        background: selectedArchivedId === conv.conversation_id ? '#e3f2fd' : undefined,
+                      }}
+                    >
                       <td style={{ padding: '8px', border: '1px solid #ddd' }}>{conv.conversation_id}</td>
                       <td style={{ padding: '8px', border: '1px solid #ddd' }}>{conv.client?.name || 'Клиент'}</td>
                       <td style={{ padding: '8px', border: '1px solid #ddd' }}>{conv.client?.phone || '-'}</td>
@@ -553,13 +575,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
                       <td style={{ padding: '8px', border: '1px solid #ddd' }}>
                         <button
                           onClick={() => {
+                            setSelectedArchivedId(conv.conversation_id);
                             setSelectedConversation(conv);
                             loadConversationMessages(conv.conversation_id);
                           }}
                           className="btn-secondary"
                           style={{ padding: '4px 8px', fontSize: '12px' }}
                         >
-                          Просмотр
+                          {selectedArchivedId === conv.conversation_id ? '→ Открыт' : 'Просмотр'}
                         </button>
                       </td>
                     </tr>
@@ -587,6 +610,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
               }}
               onClick={() => {
                 setSelectedConversation(null);
+                setSelectedArchivedId(null);
                 setConversationMessages([]);
               }}
             >
@@ -609,6 +633,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
                   <button
                     onClick={() => {
                       setSelectedConversation(null);
+                      setSelectedArchivedId(null);
                       setConversationMessages([]);
                     }}
                     style={{ padding: '8px 16px', background: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
@@ -627,8 +652,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ apiUrl, operatorRole }) => {
                         style={{
                           marginBottom: '12px',
                           padding: '8px',
-                          background: msg.sender_type === 'operator' ? '#e3f2fd' : '#f5f5f5',
+                          background:
+                            msg.sender_type === 'operator'
+                              ? '#e3f2fd'
+                              : msg.sender_type === 'bot'
+                              ? '#f3e8ff'
+                              : msg.sender_type === 'system'
+                              ? '#fff8e1'
+                              : '#f5f5f5',
                           borderRadius: '4px',
+                          borderLeft:
+                            msg.sender_type === 'bot'
+                              ? '3px solid #9c27b0'
+                              : msg.sender_type === 'system'
+                              ? '3px solid #ff9800'
+                              : undefined,
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>

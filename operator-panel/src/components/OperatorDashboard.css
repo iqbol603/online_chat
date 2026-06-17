@@ -695,6 +695,32 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
+.message-bot {
+  text-align: left;
+}
+
+.message-bot .message-text {
+  background: #f3e8ff;
+  color: #4a148c;
+  border-bottom-left-radius: 4px;
+  border-left: 3px solid #9c27b0;
+  box-shadow: 0 1px 2px rgba(156, 39, 176, 0.15);
+}
+
+.message-system {
+  text-align: center;
+}
+
+.message-system .message-text {
+  background: #fff8e1;
+  color: #e65100;
+  border-radius: 8px;
+  font-size: 13px;
+  font-style: italic;
+  max-width: 90%;
+  margin: 0 auto;
+}
+
 /* Область ввода сообщения */
 .chat-input-area {
   padding: 12px 16px;
@@ -1115,6 +1141,41 @@
   background: #e3f2fd;
   border-color: #667eea;
   box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+  position: relative;
+}
+
+.conversation-item.selected::after {
+  content: '→';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #667eea;
+  font-size: 20px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+.assigned-operator-badge {
+  padding: 2px 8px;
+  background: #ede7f6;
+  color: #5e35b1;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-operator-badge {
+  padding: 2px 8px;
+  background: #ede7f6;
+  color: #5e35b1;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .conversation-item.disabled {
@@ -1190,6 +1251,16 @@
   border-color: #667eea;
 }
 
+.dark-mode .conversation-item.selected::after {
+  color: #90caf9;
+}
+
+.dark-mode .assigned-operator-badge,
+.dark-mode .chat-operator-badge {
+  background: #311b92;
+  color: #ce93d8;
+}
+
 .dark-mode .conversation-item.has-unread {
   background: #1e3a5f;
   border-color: #2196f3;
@@ -1250,6 +1321,17 @@
 .dark-mode .message-client .message-text {
   background: #3a3a3a;
   color: #e0e0e0;
+}
+
+.dark-mode .message-bot .message-text {
+  background: #4a148c;
+  color: #e1bee7;
+  border-left-color: #ce93d8;
+}
+
+.dark-mode .message-system .message-text {
+  background: #5d4037;
+  color: #ffcc80;
 }
 
 .dark-mode .message-sender {

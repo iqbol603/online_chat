@@ -1073,9 +1073,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                           {hasUnread && (
                             <span className="unread-badge">{unreadCounts[conv.conversation_id]}</span>
                           )}
-                          {!isQueued && isSupervisor && conv.assigned_operator_id && conv.assigned_operator_id !== operator.operator_id && (
-                            <span className="other-operator-badge">
-                              {conv.assigned_operator?.name || 'Оператор'}
+                          {!isQueued && conv.assigned_operator_id && (
+                            <span className="assigned-operator-badge" title="Оператор ведёт диалог">
+                              👤 {conv.assigned_operator?.name || 'Оператор'}
                             </span>
                           )}
                         </div>
@@ -1110,6 +1110,11 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                       <span>📧 {selectedConversation.client.email}</span>
                     )}
                     <span className="channel-badge">{selectedConversation.client?.channel}</span>
+                    {selectedConversation.assigned_operator_id && (
+                      <span className="chat-operator-badge">
+                        Оператор: {selectedConversation.assigned_operator?.name || '—'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="chat-header-actions">
@@ -1157,7 +1162,15 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                 {messages.map((message) => (
                   <div
                     key={message.message_id}
-                    className={`message ${message.sender_type === 'operator' ? 'message-operator' : 'message-client'}`}
+                    className={`message ${
+                      message.sender_type === 'operator'
+                        ? 'message-operator'
+                        : message.sender_type === 'bot'
+                        ? 'message-bot'
+                        : message.sender_type === 'system'
+                        ? 'message-system'
+                        : 'message-client'
+                    }`}
                   >
                     <div className="message-header">
                       <span className="message-sender">
