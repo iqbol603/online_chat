@@ -21,4 +21,4 @@ COPY --from=build /app/.env ./.env
 
 EXPOSE 3060
 
-CMD ["node", "dist/src/main.js"]
+CMD ["node", "dist/main.js"]
