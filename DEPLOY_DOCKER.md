@@ -4,9 +4,9 @@
 
 | Было (старое) | Стало (новое) |
 |---------------|---------------|
-| `node dist/src/main.js` | `node dist/main.js` |
+| `node dist/src/main.js` | `node dist/src/main.js` |
 
-Если контейнер падает с `Cannot find module '/app/dist/src/main.js'` — обновите команду запуска.
+После `git pull` пересоберите образ — **одного `docker restart` недостаточно**.
 
 ## Быстрый фикс на сервере
 
