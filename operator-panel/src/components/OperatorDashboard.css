@@ -545,14 +545,23 @@
 }
 
 .message-bubble-wrap {
-  display: inline-block;
+  display: block;
+  width: fit-content;
+  max-width: min(70%, 560px);
+  margin-left: auto;
   position: relative;
-  max-width: 70%;
-  vertical-align: top;
 }
 
 .message-operator .message-bubble-wrap .message-text {
-  max-width: 100%;
+  max-width: none;
+  width: auto;
+}
+
+.message-client .message-text {
+  display: block;
+  width: fit-content;
+  max-width: min(70%, 560px);
+  margin-right: auto;
 }
 
 .message-edit-button {
@@ -653,13 +662,14 @@
 }
 
 .message-text {
-  display: inline-block;
+  display: block;
+  width: fit-content;
+  max-width: min(70%, 560px);
   padding: 10px 14px;
   border-radius: 12px;
-  max-width: 70%;
-  word-wrap: break-word;
+  word-break: normal;
   overflow-wrap: break-word;
-  white-space: pre-wrap;
+  white-space: pre-line;
   font-size: 14px;
   line-height: 1.4;
   text-align: left;
