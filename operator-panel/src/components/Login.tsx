@@ -26,7 +26,26 @@ const Login: React.FC<LoginProps> = ({ onLogin, apiUrl }) => {
 
       onLogin(response.data.operator, response.data.access_token);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка входа. Проверьте email и пароль.');
+      let message = 'Ошибка входа. Проверьте email и пароль.';
+
+      if (!err.response) {
+        message = `Нет связи с сервером (${apiUrl}). Проверьте, что backend запущен на порту 3060/3063.`;
+      } else if (err.response.status === 401) {
+        message = 'Неверный email или пароль.';
+      } else if (err.response.status >= 500) {
+        message = err.response.data?.message
+          || 'Ошибка сервера. Проверьте backend/.env и логи (pm2 logs).';
+      } else if (err.response.data?.message) {
+        message = err.response.data.message;
+      }
+
+      console.error('[Login] error:', {
+        apiUrl,
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      });
+      setError(message);
     } finally {
       setLoading(false);
     }

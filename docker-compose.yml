@@ -1,0 +1,11 @@
+services:
+  backend:
+    build: ./backend
+    container_name: online_chat_back_cnt
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "3060:3060"
+    volumes:
+      - ./backend/uploads:/app/uploads
