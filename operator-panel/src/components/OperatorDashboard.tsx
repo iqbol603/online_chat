@@ -1266,16 +1266,6 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                           <span className="message-edited-label"> · изменено</span>
                         )}
                       </span>
-                      {canEditMessage(message) && editingMessageId !== message.message_id && (
-                        <button
-                          type="button"
-                          className="message-edit-button"
-                          onClick={() => startEditMessage(message)}
-                          title="Редактировать сообщение"
-                        >
-                          ✏️
-                        </button>
-                      )}
                     </div>
                     {editingMessageId === message.message_id ? (
                       <div className="message-edit-area">
@@ -1306,7 +1296,19 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                         </div>
                       </div>
                     ) : (
-                      <div className="message-text">{message.text}</div>
+                      <div className="message-content-row">
+                        {canEditMessage(message) && (
+                          <button
+                            type="button"
+                            className="message-edit-button"
+                            onClick={() => startEditMessage(message)}
+                            title="Редактировать сообщение"
+                          >
+                            ✏️
+                          </button>
+                        )}
+                        <div className="message-text">{message.text}</div>
+                      </div>
                     )}
                     {message.sender_type === 'operator' && (
                       <div className="message-status">
