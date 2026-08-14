@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS `messages` (
   `attachments` JSON NULL COMMENT 'Массив вложений',
   `read_by_operator_at` TIMESTAMP NULL,
   `read_by_client_at` TIMESTAMP NULL,
+  `edited_at` TIMESTAMP NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`conversation_id`) REFERENCES `conversations`(`conversation_id`) ON DELETE CASCADE,
   INDEX `idx_conversation` (`conversation_id`),

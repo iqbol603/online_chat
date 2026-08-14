@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Message, SenderType } from '../entities/message.entity';
@@ -9,6 +9,50 @@ export class MessagesService {
     @InjectRepository(Message)
     private messagesRepository: Repository<Message>,
   ) {}
+
+  async findById(messageId: number): Promise<Message | null> {
+    return await this.messagesRepository.findOne({
+      where: { message_id: messageId },
+    });
+  }
+
+  async updateOperatorMessage(
+    messageId: number,
+    operatorId: number,
+    text: string,
+    assignedOperatorId?: number | null,
+    conversationStatus?: string,
+  ): Promise<Message> {
+    const message = await this.findById(messageId);
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    if (message.sender_type !== 'operator') {
+      throw new ForbiddenException('Only operator messages can be edited');
+    }
+
+    if (message.sender_id !== operatorId) {
+      throw new ForbiddenException('You can only edit your own messages');
+    }
+
+    if (conversationStatus === 'closed') {
+      throw new BadRequestException('Cannot edit messages in a closed conversation');
+    }
+
+    if (assignedOperatorId !== operatorId) {
+      throw new ForbiddenException('You are not assigned to this conversation');
+    }
+
+    const trimmed = text.trim();
+    if (!trimmed) {
+      throw new BadRequestException('Message text cannot be empty');
+    }
+
+    message.text = trimmed;
+    message.edited_at = new Date();
+    return await this.messagesRepository.save(message);
+  }
 
   async create(data: {
     conversation_id: number;

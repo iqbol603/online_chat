@@ -547,6 +547,8 @@
 .message-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 4px;
   font-size: 12px;
   color: #666;
@@ -562,6 +564,77 @@
 
 .message-time {
   opacity: 0.7;
+}
+
+.message-edited-label {
+  color: #888;
+  font-style: italic;
+}
+
+.message-edit-button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.55;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.message-edit-button:hover {
+  opacity: 1;
+}
+
+.message-edit-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message-edit-input {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1px solid #667eea;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: vertical;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  box-sizing: border-box;
+}
+
+.message-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.message-edit-cancel,
+.message-edit-save {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+}
+
+.message-edit-cancel {
+  background: #f0f0f0;
+  color: #555;
+}
+
+.message-edit-save {
+  background: #667eea;
+  color: white;
+}
+
+.message-edit-save:disabled,
+.message-edit-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .message-text {
@@ -739,7 +812,7 @@
 
 .chat-input-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
 }
 
@@ -749,6 +822,15 @@
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 14px;
+  font-family: inherit;
+  line-height: 1.4;
+  min-height: 40px;
+  max-height: 160px;
+  resize: none;
+  overflow-y: hidden;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .message-input:focus {

@@ -22,6 +22,7 @@ interface Message {
   created_at: string;
   read_by_operator_at?: string | null;
   read_by_client_at?: string | null;
+  edited_at?: string | null;
   attachments?: any[];
 }
 
@@ -60,6 +61,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editingMessageText, setEditingMessageText] = useState('');
+  const [savingMessageEdit, setSavingMessageEdit] = useState(false);
   const [status, setStatus] = useState<'online' | 'away' | 'offline'>('offline');
   const [activeTab, setActiveTab] = useState<'chats' | 'admin' | 'operators'>('chats');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -70,6 +74,9 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const MESSAGE_INPUT_MIN_HEIGHT = 40;
+  const MESSAGE_INPUT_MAX_HEIGHT = 160;
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
   const [selectedOperatorId, setSelectedOperatorId] = useState<number | null>(null);
@@ -79,6 +86,32 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
   const activeConversationsRef = useRef<Conversation[]>([]);
   const queuedConversationsRef = useRef<Conversation[]>([]);
   const activeTabRef = useRef<'chats' | 'admin' | 'operators'>(activeTab);
+  const adjustMessageInputHeight = () => {
+    const textarea = messageInputRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = 'auto';
+    const nextHeight = Math.min(
+      Math.max(textarea.scrollHeight, MESSAGE_INPUT_MIN_HEIGHT),
+      MESSAGE_INPUT_MAX_HEIGHT,
+    );
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY =
+      textarea.scrollHeight > MESSAGE_INPUT_MAX_HEIGHT ? 'auto' : 'hidden';
+  };
+
+  const resetMessageInputHeight = () => {
+    const textarea = messageInputRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = `${MESSAGE_INPUT_MIN_HEIGHT}px`;
+    textarea.style.overflowY = 'hidden';
+  };
+
+  useEffect(() => {
+    adjustMessageInputHeight();
+  }, [inputText, selectedConversation?.conversation_id]);
+
   const isAdmin = operator.role === 'admin';
   const isSupervisor = operator.role === 'supervisor' || operator.role === 'admin';
   const isAssignedToCurrent =
@@ -701,6 +734,8 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     setSelectedConversation(conversation);
     selectedConversationRef.current = conversation;
     setIsClientTyping(false);
+    setEditingMessageId(null);
+    setEditingMessageText('');
     // Сбрасываем счетчик непрочитанных для этого диалога
     setUnreadCounts((prev) => {
       const newCounts = { ...prev };
@@ -770,9 +805,10 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
     }
 
     setInputText('');
+    resetMessageInputHeight();
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputText(e.target.value);
     
     // Отправляем typing:start при начале ввода
@@ -795,6 +831,44 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
           socket.emit('operator:typing:stop', { conversationId: selectedConversation.conversation_id });
         }
       }, 2000);
+    }
+  };
+
+  const canEditMessage = (message: Message) =>
+    message.sender_type === 'operator' &&
+    message.sender_id === operator.operator_id &&
+    isAssignedToCurrent &&
+    selectedConversation?.status === 'in_progress';
+
+  const startEditMessage = (message: Message) => {
+    setEditingMessageId(message.message_id);
+    setEditingMessageText(message.text);
+  };
+
+  const cancelEditMessage = () => {
+    setEditingMessageId(null);
+    setEditingMessageText('');
+  };
+
+  const handleSaveEditMessage = async (messageId: number) => {
+    const text = editingMessageText.trim();
+    if (!text) {
+      alert('Сообщение не может быть пустым');
+      return;
+    }
+
+    setSavingMessageEdit(true);
+    try {
+      const response = await axios.patch(`${apiUrl}/messages/${messageId}`, { text });
+      setMessages((prev) =>
+        prev.map((m) => (m.message_id === messageId ? response.data : m)),
+      );
+      cancelEditMessage();
+    } catch (error: any) {
+      console.error('Error editing message:', error);
+      alert(error.response?.data?.message || 'Не удалось изменить сообщение');
+    } finally {
+      setSavingMessageEdit(false);
     }
   };
 
@@ -1186,9 +1260,54 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                               : 'Онлайн помощник')
                           : 'Система'}
                       </span>
-                      <span className="message-time">{formatTime(message.created_at)}</span>
+                      <span className="message-time">
+                        {formatTime(message.created_at)}
+                        {message.edited_at && (
+                          <span className="message-edited-label"> · изменено</span>
+                        )}
+                      </span>
+                      {canEditMessage(message) && editingMessageId !== message.message_id && (
+                        <button
+                          type="button"
+                          className="message-edit-button"
+                          onClick={() => startEditMessage(message)}
+                          title="Редактировать сообщение"
+                        >
+                          ✏️
+                        </button>
+                      )}
                     </div>
-                    <div className="message-text">{message.text}</div>
+                    {editingMessageId === message.message_id ? (
+                      <div className="message-edit-area">
+                        <textarea
+                          className="message-edit-input"
+                          value={editingMessageText}
+                          onChange={(e) => setEditingMessageText(e.target.value)}
+                          rows={3}
+                          disabled={savingMessageEdit}
+                        />
+                        <div className="message-edit-actions">
+                          <button
+                            type="button"
+                            className="message-edit-cancel"
+                            onClick={cancelEditMessage}
+                            disabled={savingMessageEdit}
+                          >
+                            Отмена
+                          </button>
+                          <button
+                            type="button"
+                            className="message-edit-save"
+                            onClick={() => handleSaveEditMessage(message.message_id)}
+                            disabled={savingMessageEdit || !editingMessageText.trim()}
+                          >
+                            {savingMessageEdit ? 'Сохранение...' : 'Сохранить'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="message-text">{message.text}</div>
+                    )}
                     {message.sender_type === 'operator' && (
                       <div className="message-status">
                         <span className={`message-read-status ${message.read_by_client_at ? 'read' : ''}`}>
@@ -1316,15 +1435,14 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                 )}
                 <div className="chat-input-main">
                   <div className="chat-input-row">
-                    <input
-                      type="text"
+                    <textarea
+                      ref={messageInputRef}
                       value={inputText}
                       onChange={handleInputChange}
-                      onKeyPress={(e) => {
+                      onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
                           handleSendMessage();
-                          // Останавливаем typing при отправке
                           if (socket && selectedConversation) {
                             socket.emit('operator:typing:stop', {
                               conversationId: selectedConversation.conversation_id,
@@ -1338,11 +1456,12 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                       }}
                       placeholder={
                         isAssignedToCurrent
-                          ? 'Введите сообщение...'
+                          ? 'Введите сообщение... (Shift+Enter — новая строка)'
                           : 'Нажмите «Подключиться к диалогу», чтобы ответить'
                       }
                       className="message-input"
                       disabled={!isAssignedToCurrent}
+                      rows={1}
                     />
                     <button
                       type="button"

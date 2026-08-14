@@ -84,6 +84,7 @@ interface Message {
   attachments?: any[];
   read_by_operator_at?: string | null;
   read_by_client_at?: string | null;
+  edited_at?: string | null;
 }
 
 interface Conversation {
@@ -758,7 +759,15 @@ const ChatWidget: React.FC = () => {
                           ? (client?.language === 'en' ? 'Operator' : client?.language === 'tj' ? 'Оператор' : 'Оператор')
                           : (client?.language === 'en' ? 'System' : client?.language === 'tj' ? 'Система' : 'Система')}
                       </span>
-                      <span className="message-time">{formatTime(message.created_at)}</span>
+                      <span className="message-time">
+                        {formatTime(message.created_at)}
+                        {message.edited_at && message.sender_type === 'operator' && (
+                          <span className="message-edited-label">
+                            {' '}
+                            · {client?.language === 'en' ? 'edited' : client?.language === 'tj' ? 'тағир дода шуд' : 'изменено'}
+                          </span>
+                        )}
+                      </span>
                     </div>
                     <div className="message-text">{message.text}</div>
                     {message.sender_type === 'client' && (

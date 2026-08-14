@@ -352,6 +352,11 @@
   opacity: 0.7;
 }
 
+.message-edited-label {
+  opacity: 0.8;
+  font-style: italic;
+}
+
 .message-text {
   display: inline-block;
   padding: 10px 14px;

@@ -423,6 +423,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  public notifyMessageUpdated(message: any, clientId: number) {
+    this.sendToClient(clientId, 'message:updated', message);
+    this.broadcastToOperators('message:updated', message);
+  }
+
   public sendToOperator(operatorId: number, event: string, data: any) {
     const socketId = this.operatorSockets.get(operatorId);
     if (socketId) {

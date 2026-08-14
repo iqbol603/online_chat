@@ -46,6 +46,9 @@ export class Message {
   @Column({ type: 'timestamp', nullable: true })
   read_by_client_at: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  edited_at: Date | null;
+
   @CreateDateColumn()
   @Index()
   created_at: Date;

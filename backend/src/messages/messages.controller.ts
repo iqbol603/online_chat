@@ -9,14 +9,18 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
+import { IsString, MinLength, MaxLength } from 'class-validator';
 import { MessagesService } from './messages.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { ConversationsService } from '../conversations/conversations.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 interface CreateMessageDto {
   conversation_id: number;
@@ -24,6 +28,13 @@ interface CreateMessageDto {
   sender_id?: number;
   text: string;
   attachments?: any[];
+}
+
+class UpdateMessageDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(5000)
+  text: string;
 }
 
 @Controller('api/messages')
@@ -144,5 +155,30 @@ export class MessagesController {
     }
     
     return { success: true, message };
+  }
+
+  @Patch(':messageId')
+  @UseGuards(JwtAuthGuard)
+  async updateMessage(
+    @Param('messageId', ParseIntPipe) messageId: number,
+    @Body() dto: UpdateMessageDto,
+    @Request() req: any,
+  ) {
+    const existing = await this.messagesService.findById(messageId);
+    if (!existing) {
+      throw new BadRequestException('Message not found');
+    }
+
+    const conversation = await this.conversationsService.findById(existing.conversation_id);
+    const message = await this.messagesService.updateOperatorMessage(
+      messageId,
+      req.user.operator_id,
+      dto.text,
+      conversation.assigned_operator_id,
+      conversation.status,
+    );
+
+    this.chatGateway.notifyMessageUpdated(message, conversation.client_id);
+    return message;
   }
 }
