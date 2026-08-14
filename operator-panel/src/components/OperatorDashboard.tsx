@@ -1296,7 +1296,8 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                         </div>
                       </div>
                     ) : (
-                      <div className="message-content-row">
+                      <div className="message-bubble-wrap">
+                        <div className="message-text">{message.text}</div>
                         {canEditMessage(message) && (
                           <button
                             type="button"
@@ -1307,7 +1308,6 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                             ✏️
                           </button>
                         )}
-                        <div className="message-text">{message.text}</div>
                       </div>
                     )}
                     {message.sender_type === 'operator' && (

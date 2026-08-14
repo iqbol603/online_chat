@@ -537,9 +537,6 @@
 }
 
 .message-operator {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
   text-align: right;
 }
 
@@ -547,26 +544,28 @@
   text-align: left;
 }
 
-.message-content-row {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 6px;
-  max-width: 75%;
+.message-bubble-wrap {
+  display: inline-block;
+  position: relative;
+  max-width: 70%;
+  vertical-align: top;
 }
 
-.message-operator .message-content-row {
-  flex-direction: row-reverse;
+.message-operator .message-bubble-wrap .message-text {
+  max-width: 100%;
 }
 
 .message-edit-button {
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  transform: translateY(-50%);
   border: none;
   background: transparent;
   cursor: pointer;
   font-size: 14px;
   opacity: 0.55;
   padding: 0;
-  flex-shrink: 0;
-  margin-top: 10px;
   line-height: 1;
 }
 
@@ -659,8 +658,11 @@
   border-radius: 12px;
   max-width: 70%;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
   font-size: 14px;
   line-height: 1.4;
+  text-align: left;
 }
 
 .message-status {
