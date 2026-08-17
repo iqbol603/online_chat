@@ -825,10 +825,24 @@
   gap: 6px;
 }
 
-.chat-input-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
+.file-input {
+  display: none;
+}
+
+.attach-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: #f9f9f9;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.attach-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .message-input {

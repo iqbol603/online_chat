@@ -26,6 +26,21 @@ interface Message {
   attachments?: any[];
 }
 
+const IMAGE_EXT = /\.(jpe?g|png|gif|webp)$/i;
+
+const isImageAttachment = (attachment: any) =>
+  attachment?.type === 'image' ||
+  String(attachment?.mimetype || '').startsWith('image/') ||
+  IMAGE_EXT.test(attachment?.filename || '') ||
+  IMAGE_EXT.test(attachment?.url || '');
+
+const getAttachmentUrl = (apiUrl: string, attachment: any) => {
+  if (!attachment?.url) return '';
+  if (String(attachment.url).startsWith('http')) return attachment.url;
+  const filename = String(attachment.url).split('/').pop() || '';
+  return `${apiUrl}/messages/file/${encodeURIComponent(filename)}`;
+};
+
 interface Conversation {
   conversation_id: number;
   client_id: number;
@@ -1346,10 +1361,8 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                             );
                           }
                           // Если это изображение
-                          if (attachment.type === 'image' || attachment.mimetype?.startsWith('image/')) {
-                            const imageUrl = attachment.url.startsWith('http') 
-                              ? attachment.url 
-                              : `${apiUrl.replace('/api', '')}${attachment.url}`;
+                          if (isImageAttachment(attachment)) {
+                            const imageUrl = getAttachmentUrl(apiUrl, attachment);
                             return (
                               <div key={idx} className="message-image">
                                 <img 
@@ -1367,9 +1380,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                             );
                           }
                           // Если это обычный файл
-                          const fileUrl = attachment.url.startsWith('http')
-                            ? attachment.url
-                            : `${apiUrl.replace('/api', '')}${attachment.url}`;
+                          const fileUrl = getAttachmentUrl(apiUrl, attachment);
                           return (
                             <div key={idx} className="message-file">
                               <a
@@ -1410,6 +1421,7 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                   type="file"
                   ref={fileInputRef}
                   className="file-input"
+                  accept="image/*,.pdf,.doc,.docx"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
                     if (file && file.size > 20 * 1024 * 1024) {
@@ -1439,6 +1451,15 @@ const OperatorDashboard: React.FC<OperatorDashboardProps> = ({ operator, onLogou
                 )}
                 <div className="chat-input-main">
                   <div className="chat-input-row">
+                    <button
+                      type="button"
+                      className="attach-button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={!isAssignedToCurrent || uploadingFile}
+                      title="Прикрепить файл"
+                    >
+                      📎
+                    </button>
                     <textarea
                       ref={messageInputRef}
                       value={inputText}

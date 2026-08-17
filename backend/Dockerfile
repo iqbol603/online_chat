@@ -19,6 +19,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/.env ./.env
 
+RUN mkdir -p /app/uploads
+
 EXPOSE 3060
 
 CMD ["node", "dist/main.js"]

@@ -5,11 +5,10 @@ import * as os from 'os';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { readFileSync, existsSync } from 'fs';
+import { getBackendRoot, getUploadsPath } from './common/uploads-path';
 
-// Загрузка .env относительно папки backend (важно для cPanel, когда cwd не backend)
-const pathToEnv = __dirname.includes('dist')
-  ? join(__dirname, '..', '..', '.env')
-  : join(__dirname, '..', '.env');
+// Загрузка .env относительно папки backend (важно для cPanel и Docker)
+const pathToEnv = join(getBackendRoot(), '.env');
 if (existsSync(pathToEnv)) {
   const content = readFileSync(pathToEnv, 'utf8');
   content.split('\n').forEach((line) => {
@@ -34,16 +33,9 @@ async function bootstrap() {
     console.log(`[main] Global prefix set: ${globalPrefix}`);
   }
   
-  // Настройка статических файлов для загрузок
-  // После компиляции __dirname будет dist/src, поэтому нужно подняться на 2 уровня вверх
-  // В development: __dirname = backend/src, нужно ../uploads
-  // В production: __dirname = backend/dist/src, нужно ../../uploads
-  const uploadsPath = __dirname.includes('dist')
-    ? join(__dirname, '..', '..', 'uploads')
-    : join(__dirname, '..', 'uploads');
-  
+  const uploadsPath = getUploadsPath();
   console.log(`📁 Uploads directory: ${uploadsPath}`);
-  
+
   app.useStaticAssets(uploadsPath, {
     prefix: '/uploads',
   });

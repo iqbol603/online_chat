@@ -66,6 +66,21 @@ const getWsUrl = () => {
 const API_URL = getApiUrl();
 const WS_URL = getWsUrl();
 
+const IMAGE_EXT = /\.(jpe?g|png|gif|webp)$/i;
+
+const isImageAttachment = (attachment: any) =>
+  attachment?.type === 'image' ||
+  String(attachment?.mimetype || '').startsWith('image/') ||
+  IMAGE_EXT.test(attachment?.filename || '') ||
+  IMAGE_EXT.test(attachment?.url || '');
+
+const getAttachmentUrl = (attachment: any) => {
+  if (!attachment?.url) return '';
+  if (String(attachment.url).startsWith('http')) return attachment.url;
+  const filename = String(attachment.url).split('/').pop() || '';
+  return `${API_URL}/messages/file/${encodeURIComponent(filename)}`;
+};
+
 // Логирование для отладки
 if (typeof window !== 'undefined') {
   console.log('[ChatWidget] API_URL:', API_URL);
@@ -804,10 +819,8 @@ const ChatWidget: React.FC = () => {
                             );
                           }
                           // Если это файл/изображение
-                          if (attachment.type === 'image' || attachment.mimetype?.startsWith('image/')) {
-                            const imageUrl = attachment.url.startsWith('http') 
-                              ? attachment.url 
-                              : `${API_URL.replace('/api', '')}${attachment.url}`;
+                          if (isImageAttachment(attachment)) {
+                            const imageUrl = getAttachmentUrl(attachment);
                             return (
                               <div key={idx} className="message-image">
                                 <img 
@@ -828,7 +841,7 @@ const ChatWidget: React.FC = () => {
                           return (
                             <div key={idx} className="message-file">
                               <a
-                                href={`${API_URL.replace('/api', '')}${attachment.url}`}
+                                href={getAttachmentUrl(attachment)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="file-link"

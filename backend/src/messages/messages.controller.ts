@@ -9,18 +9,22 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  NotFoundException,
   UseGuards,
   Request,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { basename, extname, join } from 'path';
 import * as fs from 'fs';
 import { IsString, MinLength, MaxLength } from 'class-validator';
+import { Response } from 'express';
 import { MessagesService } from './messages.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { ConversationsService } from '../conversations/conversations.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { getUploadsPath } from '../common/uploads-path';
 
 interface CreateMessageDto {
   conversation_id: number;
@@ -55,11 +59,7 @@ export class MessagesController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (req, file, cb) => {
-          const uploadPath = './uploads';
-          if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-          }
-          cb(null, uploadPath);
+          cb(null, getUploadsPath());
         },
         filename: (req, file, cb) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -97,7 +97,7 @@ export class MessagesController {
     }
 
     const fileUrl = `/uploads/${file.filename}`;
-    
+
     return {
       url: fileUrl,
       filename: file.originalname,
@@ -105,6 +105,16 @@ export class MessagesController {
       mimetype: file.mimetype,
       type: file.mimetype.startsWith('image/') ? 'image' : 'file',
     };
+  }
+
+  @Get('file/:filename')
+  async getUploadedFile(@Param('filename') filename: string, @Res() res: Response) {
+    const safeName = basename(filename);
+    const filePath = join(getUploadsPath(), safeName);
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('File not found');
+    }
+    return res.sendFile(filePath);
   }
 
   @Get('conversation/:conversationId')
